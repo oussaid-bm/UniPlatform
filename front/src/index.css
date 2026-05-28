@@ -1,0 +1,22 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #F1F3FF;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .modal_box {
+    width: calc(100vw - 32px) !important;
+    max-width: 100% !important;
+    padding: 20px !important;
+    border-radius: 16px !important;
+    margin: 0 16px;
+  }
+}

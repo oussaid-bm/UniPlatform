@@ -1,0 +1,241 @@
+.dashboard {
+  min-height: 100vh;
+  background: #0f1117;
+  color: #fff;
+}
+
+.dashboard_nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav_brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4f8ef7;
+}
+
+.nav_user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav_badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.nav_badge.professor {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.nav_badge.student {
+  background: rgba(79, 142, 247, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(79, 142, 247, 0.3);
+}
+
+.nav_username {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.logout_btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.logout_btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.dashboard_content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.dashboard_header {
+  margin-bottom: 32px;
+}
+
+.dashboard_header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.dashboard_header p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+.create_course_form {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.create_course_form h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: rgba(255,255,255,0.85);
+}
+
+.create_course_form input,
+.create_course_form textarea {
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+}
+
+.create_course_form input:focus,
+.create_course_form textarea:focus {
+  border-color: #4f8ef7;
+}
+
+.create_btn {
+  align-self: flex-start;
+  padding: 10px 22px;
+  background: #4f8ef7;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.create_btn:hover:not(:disabled) {
+  background: #3b7de8;
+}
+
+.create_btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.courses_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.course_card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 22px;
+  transition: border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.course_card:hover {
+  border-color: #4f8ef7;
+  transform: translateY(-2px);
+}
+
+.course_card_title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.course_card_desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+  min-height: 36px;
+  line-height: 1.5;
+}
+
+.course_card_footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.course_prof {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.card_actions {
+  display: flex;
+  gap: 8px;
+}
+
+.join_btn {
+  padding: 7px 16px;
+  background: #4f8ef7;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.join_btn:hover {
+  background: #3b7de8;
+}
+
+.delete_btn {
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete_btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.empty_state {
+  text-align: center;
+  padding: 60px 20px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 15px;
+}
+
+.courses_section_title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: rgba(255,255,255,0.7);
+}
