@@ -78,6 +78,7 @@ const CourseRoom = () => {
   const [joinStatus, setJoinStatus] = useState('idle'); // idle | pending | rejected
   const [rightTab, setRightTab] = useState('chat'); // 'chat' | 'files'
   const [mobileChat, setMobileChat] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
 
   const isProfessor = user?.role === 'professor';
   const timerDisplay = useTimer(inVideoSession);
@@ -213,7 +214,13 @@ const CourseRoom = () => {
             <div className="room_timer"><ClockIcon /> {timerDisplay}</div>
           )}
           {participants.length > 0 && (
-            <div className="room_participants"><UsersIcon /> {participants.length}</div>
+            <button
+              className={`room_participants_btn${showParticipants ? ' active' : ''}`}
+              onClick={() => setShowParticipants(v => !v)}
+              title="Participants"
+            >
+              <UsersIcon /> {participants.length}
+            </button>
           )}
           <button
             className={`mobile_chat_btn${mobileChat ? ' active' : ''}`}
@@ -292,6 +299,31 @@ const CourseRoom = () => {
           ) : (
             <FilePanel courseId={courseId} token={token} isProfessor={isProfessor} />
           )}
+        </div>
+
+        {/* Panneau participants coulissant (style Discord) */}
+        <div className={`room_online_panel${showParticipants ? ' open' : ''}`}>
+          <div className="room_online_title">
+            <span className="online_dot" /> Participants — {participants.length}
+            <button className="room_online_close" onClick={() => setShowParticipants(false)}>✕</button>
+          </div>
+          <div className="room_online_list">
+            {participants.map((p) => (
+              <div className="room_online_user" key={p.socketId}>
+                <div className="room_online_avatar" style={{ background: colorFor(p.username) }}>
+                  {getInitials(p.username)}
+                  <span className="room_online_user_dot" />
+                </div>
+                <div className="room_online_info">
+                  <span className="room_online_name">{p.username}{p.username === user?.username ? ' (moi)' : ''}</span>
+                  <span className="room_online_role">{p.role === 'professor' ? 'Professeur' : 'Étudiant'}</span>
+                </div>
+              </div>
+            ))}
+            {participants.length === 0 && (
+              <div className="room_online_empty">Aucun participant</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -16,6 +16,11 @@ const formatTime    = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour:
 const GroupIconSvg = () => (
   <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
 );
+const UsersIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
 const SendIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -27,6 +32,22 @@ const TrashIcon = () => (
     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
   </svg>
 );
+const ClipIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+  </svg>
+);
+const FileIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>
+  </svg>
+);
+const DownloadIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const formatSize = (b) => !b ? '' : b < 1024 ? `${b} o` : b < 1048576 ? `${(b/1024).toFixed(1)} Ko` : `${(b/1048576).toFixed(1)} Mo`;
 
 const Groupes = () => {
   const { user, token } = useSelector((s) => s.auth);
@@ -35,8 +56,12 @@ const Groupes = () => {
   const [groups,      setGroups]      = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
   const [messages,    setMessages]    = useState({});
+  const [onlineByGroup, setOnlineByGroup] = useState({});
+  const [showOnline, setShowOnline] = useState(false);
   const [text,        setText]        = useState('');
+  const [uploading,   setUploading]   = useState(false);
   const bottomRef = useRef(null);
+  const fileRef   = useRef(null);
 
   /* ── États modal création ─────────────────────────────────── */
   const [showModal,        setShowModal]        = useState(false);
@@ -63,10 +88,21 @@ const Groupes = () => {
     const socket = getSocket();
     if (!socket) return;
     const handleMsg = (msg) => {
-      setMessages((prev) => ({ ...prev, [msg.groupId]: [...(prev[msg.groupId] || []), msg] }));
+      const gid = msg.groupId || msg.group_id;
+      setMessages((prev) => {
+        const list = prev[gid] || [];
+        if (msg.id && list.some((m) => m.id === msg.id)) return prev;
+        return { ...prev, [gid]: [...list, msg] };
+      });
     };
+    const handleOnline = ({ groupId, users }) =>
+      setOnlineByGroup((prev) => ({ ...prev, [groupId]: Array.isArray(users) ? users : [] }));
     socket.on('group-message', handleMsg);
-    return () => socket.off('group-message', handleMsg);
+    socket.on('group-online', handleOnline);
+    return () => {
+      socket.off('group-message', handleMsg);
+      socket.off('group-online', handleOnline);
+    };
   }, []);
 
   useEffect(() => {
@@ -78,6 +114,14 @@ const Groupes = () => {
     if (activeGroup) socket?.emit('leave-group-chat', activeGroup.id);
     setActiveGroup(group);
     socket?.emit('join-group-chat', group.id);
+    // Charge l'historique du groupe depuis la base
+    fetch(`${API}/chat/group/${group.id}`, { headers })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data))
+          setMessages((prev) => ({ ...prev, [group.id]: data }));
+      })
+      .catch(() => {});
   };
 
   const handleSend = () => {
@@ -88,6 +132,33 @@ const Groupes = () => {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeGroup) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${API}/chat/group/${activeGroup.id}/file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const msg = await res.json();
+      if (res.ok) {
+        // On ne l'ajoute pas localement : le broadcast nous le renvoie (évite les doublons)
+        getSocket()?.emit('broadcast-group-file', { groupId: activeGroup.id, message: msg });
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const downloadFile = (msg) => {
+    window.open(`${API}/chat/group/download/${msg.file_name}?token=${token}`, '_blank');
   };
 
   /* ── Création groupe ──────────────────────────────────────── */
@@ -194,17 +265,27 @@ const Groupes = () => {
               </div>
               <div className="group_chat_header_info">
                 <h3>{activeGroup.name}</h3>
-                <p>{activeGroup.member_count ?? '—'} membres{activeGroup.filiere ? ` · ${activeGroup.filiere}` : ''}</p>
+                <p>{(onlineByGroup[activeGroup.id]?.length || 0)} en ligne · {activeGroup.member_count ?? '—'} membres{activeGroup.filiere ? ` · ${activeGroup.filiere}` : ''}</p>
               </div>
+              <button
+                className={`online_toggle_btn${showOnline ? ' active' : ''}`}
+                onClick={() => setShowOnline((v) => !v)}
+                title="Membres en ligne"
+              >
+                <UsersIcon />
+                <span className="online_toggle_count">{onlineByGroup[activeGroup.id]?.length || 0}</span>
+              </button>
             </div>
 
+            <div className="chat_main_row">
+            <div className="chat_left">
             <div className="group_messages">
               {groupMessages.map((msg, i) => {
                 const isOwn    = msg.sender_id === user?.id;
                 const prev     = groupMessages[i - 1];
                 const isGrouped = prev && prev.sender_id === msg.sender_id;
                 return (
-                  <div className={`chat_msg_row${isOwn ? ' own' : ''}${isGrouped ? ' chat_msg_grouped' : ''}`} key={i}>
+                  <div className={`chat_msg_row${isOwn ? ' own' : ''}${isGrouped ? ' chat_msg_grouped' : ''}`} key={msg.id || i}>
                     {!isOwn && (
                       isGrouped
                         ? <div className="avatar_spacer" />
@@ -219,7 +300,18 @@ const Groupes = () => {
                           <span className="chat_msg_time">{formatTime(msg.created_at)}</span>
                         </div>
                       )}
-                      <div className={`chat_msg_bubble${isOwn ? ' own' : ''}`}>{msg.content}</div>
+                      {msg.file_name ? (
+                        <div className={`chat_file_bubble${isOwn ? ' own' : ''}`} onClick={() => downloadFile(msg)}>
+                          <div className="chat_file_icon"><FileIcon /></div>
+                          <div className="chat_file_info">
+                            <span className="chat_file_name">{msg.file_original}</span>
+                            <span className="chat_file_size">{formatSize(msg.file_size)}</span>
+                          </div>
+                          <div className="chat_file_dl"><DownloadIcon /></div>
+                        </div>
+                      ) : (
+                        <div className={`chat_msg_bubble${isOwn ? ' own' : ''}`}>{msg.content}</div>
+                      )}
                     </div>
                   </div>
                 );
@@ -233,16 +325,45 @@ const Groupes = () => {
             </div>
 
             <div className="chat_input_bar">
+              <input ref={fileRef} type="file" hidden onChange={handleFile} />
+              <button className="attach_btn" onClick={() => fileRef.current?.click()} disabled={uploading} title="Joindre un fichier">
+                <ClipIcon />
+              </button>
               <input
                 className="chat_input_field"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={`Message dans ${activeGroup.name}…`}
+                placeholder={uploading ? 'Envoi du fichier...' : `Message dans ${activeGroup.name}…`}
               />
               <button className="send_btn" onClick={handleSend} disabled={!text.trim()}>
                 <SendIcon />
               </button>
+            </div>
+            </div>
+
+            <div className={`chat_online_panel${showOnline ? ' open' : ''}`}>
+              <div className="online_panel_title">
+                <span className="online_dot" /> En ligne — {onlineByGroup[activeGroup.id]?.length || 0}
+              </div>
+              <div className="online_panel_list">
+                {(onlineByGroup[activeGroup.id] || []).map((u) => (
+                  <div className="online_user" key={u.id}>
+                    <div className="online_user_avatar" style={{ background: colorFor(u.username) }}>
+                      {getInitials(u.username)}
+                      <span className="online_user_dot" />
+                    </div>
+                    <div className="online_user_info">
+                      <span className="online_user_name">{u.username}{u.id === user?.id ? ' (moi)' : ''}</span>
+                      <span className="online_user_role">{u.role === 'professor' ? 'Professeur' : u.role === 'admin' ? 'Admin' : 'Étudiant'}</span>
+                    </div>
+                  </div>
+                ))}
+                {(onlineByGroup[activeGroup.id]?.length || 0) === 0 && (
+                  <div className="online_empty">Personne en ligne</div>
+                )}
+              </div>
+            </div>
             </div>
           </>
         ) : (

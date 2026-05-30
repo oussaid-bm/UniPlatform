@@ -88,12 +88,22 @@ const AuthPage = () => {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  /* ── Validation email ────────────────────────────────────── */
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
   /* ── Login / Register ─────────────────────────────────── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    dispatch(setLoading(true));
     dispatch(setError(null));
     setSuccessMsg('');
+
+    // Validation email format côté client
+    if (!isValidEmail(form.email)) {
+      dispatch(setError('Adresse email invalide. Vérifiez le format (ex : nom@domaine.com)'));
+      return;
+    }
+
+    dispatch(setLoading(true));
 
     try {
       const isRegister = view === 'register';
@@ -121,7 +131,7 @@ const AuthPage = () => {
 
       if (isRegister) {
         setRegisteredEmail(form.email);
-        setSuccessMsg(`📧 Compte créé ! Un email de vérification a été envoyé à ${form.email}.`);
+        setSuccessMsg(`📧 Compte créé ! Un email de vérification a été envoyé à ${form.email}. Vérifiez votre boîte mail et cliquez sur le lien pour activer votre compte. ⚠️ Si vous ne recevez rien, votre adresse email est peut-être invalide — le compte sera supprimé automatiquement après 24h.`);
         setForm({ username: '', email: '', password: '', filiere: '' });
         return;
       }

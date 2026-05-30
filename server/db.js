@@ -132,7 +132,49 @@ const getDb = async () => {
   await migrate('ALTER TABLE users ADD COLUMN reset_token_expires TEXT DEFAULT NULL');
   await migrate('ALTER TABLE courses ADD COLUMN type TEXT DEFAULT "cours"');
   await migrate('ALTER TABLE homework_submissions ADD COLUMN grade REAL DEFAULT NULL');
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS global_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_id INTEGER NOT NULL,
+      sender_name TEXT NOT NULL,
+      content TEXT DEFAULT '',
+      file_name TEXT DEFAULT NULL,
+      file_original TEXT DEFAULT NULL,
+      file_size INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS group_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL,
+      sender_id INTEGER NOT NULL,
+      sender_name TEXT NOT NULL,
+      content TEXT DEFAULT '',
+      file_name TEXT DEFAULT NULL,
+      file_original TEXT DEFAULT NULL,
+      file_size INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Colonnes fichier sur les tables chat (si créées avant cet ajout)
+  await migrate('ALTER TABLE global_messages ADD COLUMN file_name TEXT DEFAULT NULL');
+  await migrate('ALTER TABLE global_messages ADD COLUMN file_original TEXT DEFAULT NULL');
+  await migrate('ALTER TABLE global_messages ADD COLUMN file_size INTEGER DEFAULT 0');
+  await migrate('ALTER TABLE group_messages ADD COLUMN file_name TEXT DEFAULT NULL');
+  await migrate('ALTER TABLE group_messages ADD COLUMN file_original TEXT DEFAULT NULL');
+  await migrate('ALTER TABLE group_messages ADD COLUMN file_size INTEGER DEFAULT 0');
   await migrate('ALTER TABLE homework_submissions ADD COLUMN grade_comment TEXT DEFAULT ""');
+
+  // Table chat global (CREATE IF NOT EXISTS = sans risque)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS global_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_id INTEGER NOT NULL,
+      sender_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
 
   return db;
 };

@@ -85,9 +85,14 @@ const DemandeCard = ({ d, canReply, showSender, currentUserId, onReply, onDelete
       </div>
     )}
     <div className="demande_card_actions">
-      {canReply && (
+      {canReply && !d.response && (
         <button className="demande_btn reply" onClick={() => onReply(d)}>
           <ReplyIcon /> Répondre
+        </button>
+      )}
+      {canReply && d.response && (
+        <button className="demande_btn reply" onClick={() => onReply(d)}>
+          <ReplyIcon /> Modifier la réponse
         </button>
       )}
       {d.sender_id === currentUserId && (
@@ -339,7 +344,7 @@ const Demandes = () => {
         {replyModal && (
           <div className="modal_overlay" onClick={() => setReplyModal(null)}>
             <div className="modal_box" onClick={(e) => e.stopPropagation()}>
-              <h3>Répondre à la demande</h3>
+              <h3>{replyModal.response ? 'Modifier la réponse' : 'Répondre à la demande'}</h3>
               <p style={{ fontSize: 13, color: '#7A7060', margin: 0 }}>"{replyModal.title}"</p>
               <select value={replyStatus} onChange={(e) => setReplyStatus(e.target.value)}>
                 <option value="repondu">Répondu</option>

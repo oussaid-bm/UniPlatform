@@ -3,11 +3,25 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const crypto   = require('crypto');
-const { getDb }                  = require('../db');
-const { sendVerificationEmail }  = require('../email');
+const dns      = require('dns').promises;
+const { getDb }                    = require('../db');
+const { sendVerificationEmail }    = require('../email');
+const { scheduleBounceCheck }      = require('../bounceChecker');
 
 const router     = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
+
+// Vérifie que le domaine de l'email a bien un serveur mail (MX record)
+async function emailDomainExists(email) {
+  try {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    const records = await dns.resolveMx(domain);
+    return records && records.length > 0;
+  } catch {
+    return false; // domaine inexistant ou sans MX
+  }
+}
 
 /* ── INSCRIPTION ─────────────────────────────────────────────────────── */
 router.post('/register', async (req, res) => {
@@ -18,6 +32,11 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Rôle invalide.' });
   if (role === 'student' && !filiere)
     return res.status(400).json({ error: 'La filière est requise pour les étudiants.' });
+
+  // Vérification domaine email (MX record)
+  const domainValid = await emailDomainExists(email);
+  if (!domainValid)
+    return res.status(400).json({ error: "Adresse email invalide : le domaine n'accepte pas d'emails." });
 
   try {
     const db      = await getDb();
@@ -36,6 +55,9 @@ router.post('/register', async (req, res) => {
     sendVerificationEmail(email, username, token).catch((err) =>
       console.error('Erreur envoi email:', err.message)
     );
+
+    // Vérification rebond : supprime le compte si Gmail renvoie "Address not found"
+    scheduleBounceCheck(email, result.lastID);
 
     const APP_URL = process.env.APP_URL || 'http://localhost:3003';
     const isDevMode = !process.env.EMAIL_USER || process.env.EMAIL_USER.includes('votre.email');
@@ -121,10 +143,10 @@ router.post('/login', async (req, res) => {
   try {
     const db   = await getDb();
     const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
-    if (!user) return res.status(401).json({ error: 'Identifiants incorrects.' });
+    if (!user) return res.status(401).json({ error: 'Aucun compte trouvé avec cette adresse email.' });
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: 'Identifiants incorrects.' });
+    if (!valid) return res.status(401).json({ error: 'Mot de passe incorrect.' });
 
     if (!user.email_verified)
       return res.status(403).json({ error: 'email_not_verified' });
@@ -202,6 +224,20 @@ router.post('/reset-password', async (req, res) => {
     );
 
     res.json({ message: 'Mot de passe réinitialisé avec succès.' });
+  } catch {
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+/* ── VÉRIFICATION STATUT COMPTE (pour feedback bounce) ─────────────── */
+router.get('/account-status', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email requis.' });
+  try {
+    const db   = await getDb();
+    const user = await db.get('SELECT id, email_verified FROM users WHERE email = ?', [email]);
+    if (!user) return res.json({ exists: false });
+    res.json({ exists: true, verified: !!user.email_verified });
   } catch {
     res.status(500).json({ error: 'Erreur serveur.' });
   }

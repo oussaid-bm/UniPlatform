@@ -3,8 +3,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
 
 const verifyToken = (req, res, next) => {
   const header = req.headers['authorization'];
-  if (!header) return res.status(401).json({ error: 'Token manquant.' });
-  const token = header.split(' ')[1];
+  // Token depuis l'en-tête OU depuis ?token= (pour les téléchargements via window.open)
+  const token = header ? header.split(' ')[1] : req.query.token;
   if (!token) return res.status(401).json({ error: 'Token manquant.' });
   try {
     req.user = jwt.verify(token, JWT_SECRET);

@@ -433,6 +433,8 @@ const VideoChat = ({
   const handleStartSession = async () => {
     const stream = await getLocalMedia(false); // prof démarre avec micro actif
     if (!stream) return;
+    // Force l'activation explicite de la piste audio
+    stream.getAudioTracks().forEach(t => { t.enabled = true; });
     setMicMuted(false);
     setMicLocked(false);
     onStartSession();
@@ -457,9 +459,12 @@ const VideoChat = ({
   };
 
   /* ── vidéos distantes ─────────────────────────────────────────── */
-  const remoteEntries = Object.entries(remoteStreams).filter(([sid]) =>
-    isProfessor ? true : sid === professorSocketId
-  );
+  const remoteEntries = Object.entries(remoteStreams).filter(([sid]) => {
+    if (isProfessor) return true;
+    // Étudiant : affiche le prof par son socket ID
+    // Si professorSocketId pas encore connu, affiche le premier stream disponible
+    return professorSocketId ? sid === professorSocketId : true;
+  });
   const hasVideo = localStream || remoteEntries.length > 0;
 
   /* ── bouton session ─────────────────────────────────────────────── */
@@ -534,7 +539,9 @@ const VideoChat = ({
                     </div>
                   )
                 ) : (() => {
-                  const profEntry = remoteEntries.find(([sid]) => sid === professorSocketId);
+                  // Priorité au socket ID du prof ; sinon premier stream disponible
+                  const profEntry = remoteEntries.find(([sid]) => sid === professorSocketId)
+                    || (remoteEntries.length > 0 ? remoteEntries[0] : null);
                   if (profEntry) {
                     const [sid, stream] = profEntry;
                     return (
@@ -711,6 +718,8 @@ const RemoteVideo = ({ stream, label, refreshKey, micMuted, className = 'video_t
     if (!ref.current || !stream) return;
     ref.current.srcObject = null;
     ref.current.srcObject = stream;
+    // Force la lecture audio (autoplay policy du navigateur)
+    ref.current.play().catch(() => {});
   }, [stream, refreshKey]);
 
   return (

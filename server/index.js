@@ -14,6 +14,7 @@ const filesRoutes = require('./routes/files');
 const demandesRoutes    = require('./routes/demandes');
 const groupsRoutes      = require('./routes/groups');
 const submissionsRoutes = require('./routes/submissions');
+const chatRoutes        = require('./routes/chat');
 const { sendLiveSessionEmail } = require('./email');
 
 const app = express();
@@ -33,6 +34,21 @@ app.use('/api/files', filesRoutes);
 app.use('/api/demandes',     demandesRoutes);
 app.use('/api/groups',      groupsRoutes);
 app.use('/api/submissions', submissionsRoutes);
+app.use('/api/chat',       chatRoutes);
+
+// ── Historique chat global ────────────────────────────────────────────
+const { verifyToken } = require('./middleware/auth');
+app.get('/api/global-chat/history', verifyToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const messages = await db.all(
+      'SELECT * FROM global_messages ORDER BY created_at ASC LIMIT 100'
+    );
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
 
 // Sert le build React en production
 const buildPath = path.join(__dirname, '../front/build');
@@ -55,6 +71,26 @@ const courseParticipants = {};
 
 const getRoomKey = (courseId) => `course-${courseId}`;
 
+// Liste des utilisateurs en ligne dans une room (dédupliqués par userId)
+function getOnlineInRoom(room) {
+  const socketIds = io.sockets.adapter.rooms.get(room);
+  if (!socketIds) return [];
+  const seen = new Set();
+  const users = [];
+  for (const sid of socketIds) {
+    const u = connectedUsers[sid];
+    if (u && !seen.has(u.userId)) {
+      seen.add(u.userId);
+      users.push({ id: u.userId, username: u.username, role: u.role });
+    }
+  }
+  return users;
+}
+const emitGlobalOnline = () =>
+  io.to('global-chat').emit('global-online', getOnlineInRoom('global-chat'));
+const emitGroupOnline = (groupId) =>
+  io.to(`group-${groupId}`).emit('group-online', { groupId, users: getOnlineInRoom(`group-${groupId}`) });
+
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion socket:', socket.id);
 
@@ -72,44 +108,77 @@ io.on('connection', (socket) => {
   // ─── CHAT GLOBAL ───────────────────────────────────────────────────
   socket.on('join-global-chat', () => {
     socket.join('global-chat');
+    emitGlobalOnline();
   });
 
   socket.on('leave-global-chat', () => {
     socket.leave('global-chat');
+    emitGlobalOnline();
   });
 
-  socket.on('send-global-message', ({ content }) => {
+  socket.on('send-global-message', async ({ content }) => {
     const user = connectedUsers[socket.id];
     if (!user || !content?.trim()) return;
-    const message = {
-      sender_id: user.userId,
-      sender_name: user.username,
-      content: content.trim(),
-      created_at: new Date().toISOString(),
-    };
-    io.to('global-chat').emit('global-message', message);
+    try {
+      const db = await getDb();
+      const result = await db.run(
+        'INSERT INTO global_messages (sender_id, sender_name, content) VALUES (?, ?, ?)',
+        [user.userId, user.username, content.trim()]
+      );
+      const message = {
+        id: result.lastID,
+        sender_id: user.userId,
+        sender_name: user.username,
+        content: content.trim(),
+        created_at: new Date().toISOString(),
+      };
+      io.to('global-chat').emit('global-message', message);
+    } catch (err) {
+      console.error('Erreur sauvegarde message global:', err.message);
+    }
   });
 
   // ─── CHAT GROUPES ───────────────────────────────────────────────────
   socket.on('join-group-chat', (groupId) => {
     socket.join(`group-${groupId}`);
+    emitGroupOnline(groupId);
   });
 
   socket.on('leave-group-chat', (groupId) => {
     socket.leave(`group-${groupId}`);
+    emitGroupOnline(groupId);
   });
 
-  socket.on('send-group-message', ({ groupId, content }) => {
+  socket.on('send-group-message', async ({ groupId, content }) => {
     const user = connectedUsers[socket.id];
     if (!user || !content?.trim()) return;
-    const message = {
-      groupId,
-      sender_id: user.userId,
-      sender_name: user.username,
-      content: content.trim(),
-      created_at: new Date().toISOString(),
-    };
-    io.to(`group-${groupId}`).emit('group-message', message);
+    try {
+      const db = await getDb();
+      const result = await db.run(
+        'INSERT INTO group_messages (group_id, sender_id, sender_name, content) VALUES (?, ?, ?, ?)',
+        [groupId, user.userId, user.username, content.trim()]
+      );
+      const message = {
+        id: result.lastID,
+        groupId,
+        group_id: groupId,
+        sender_id: user.userId,
+        sender_name: user.username,
+        content: content.trim(),
+        created_at: new Date().toISOString(),
+      };
+      io.to(`group-${groupId}`).emit('group-message', message);
+    } catch (err) {
+      console.error('Erreur sauvegarde message groupe:', err.message);
+    }
+  });
+
+  // Diffusion d'un message fichier (déjà sauvegardé via REST) aux membres connectés
+  socket.on('broadcast-group-file', ({ groupId, message }) => {
+    io.to(`group-${groupId}`).emit('group-message', { ...message, groupId, group_id: groupId });
+  });
+  socket.on('broadcast-global-file', ({ message }) => {
+    io.to('global-chat').emit('global-message', message);
   });
 
   // ─── CHAT TEXTE (cours) ────────────────────────────────────────────
@@ -373,6 +442,17 @@ io.on('connection', (socket) => {
   });
 
   // ─── DÉCONNEXION ────────────────────────────────────────────────────
+  // Met à jour les listes "en ligne" des chats que ce socket quitte
+  socket.on('disconnecting', () => {
+    const rooms = [...socket.rooms];
+    setTimeout(() => {
+      rooms.forEach((room) => {
+        if (room === 'global-chat') emitGlobalOnline();
+        else if (room.startsWith('group-')) emitGroupOnline(room.slice(6));
+      });
+    }, 60);
+  });
+
   socket.on('disconnect', () => {
     const user = connectedUsers[socket.id];
     if (user?.courseId) {
@@ -433,5 +513,20 @@ server.on('error', (err) => {
     throw err;
   }
 });
+
+// ── Nettoyage automatique des comptes non vérifiés (toutes les heures) ──
+setInterval(async () => {
+  try {
+    const db = await getDb();
+    const result = await db.run(
+      `DELETE FROM users WHERE email_verified = 0
+       AND created_at < datetime('now', '-24 hours')`
+    );
+    if (result.changes > 0)
+      console.log(`🗑️ ${result.changes} compte(s) non vérifié(s) supprimé(s)`);
+  } catch (err) {
+    console.error('Erreur nettoyage comptes:', err.message);
+  }
+}, 60 * 60 * 1000); // toutes les heures
 
 startServer();
