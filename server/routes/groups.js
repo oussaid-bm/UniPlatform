@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES GROUPES D'ÉTUDE
+//  Le professeur crée des groupes par filière et choisit les membres.
+//  L'étudiant peut quitter un groupe ; le professeur peut expulser un membre.
+//  Deux tables : study_groups (le groupe) et group_members (qui est dedans).
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
@@ -75,11 +81,11 @@ router.post('/', verifyToken, async (req, res) => {
     const groupId = result.lastID;
 
     // Le professeur est automatiquement membre
-    await db.run('INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)', [groupId, req.user.id]);
+    await db.run('INSERT IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)', [groupId, req.user.id]);
 
     if (Array.isArray(members)) {
       for (const userId of members) {
-        await db.run('INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)', [groupId, userId]);
+        await db.run('INSERT IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)', [groupId, userId]);
       }
     }
 
@@ -90,6 +96,71 @@ router.post('/', verifyToken, async (req, res) => {
       [groupId]
     );
     res.status(201).json(group);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/groups/:id/members ─────────────────────────────────
+   Liste des membres d'un groupe (créateur ou admin)
+─────────────────────────────────────────────────────────────── */
+router.get('/:id/members', verifyToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const group = await db.get('SELECT * FROM study_groups WHERE id = ?', [req.params.id]);
+    if (!group) return res.status(404).json({ error: 'Groupe introuvable.' });
+
+    const members = await db.all(
+      `SELECT u.id, u.username, u.role
+       FROM group_members gm JOIN users u ON gm.user_id = u.id
+       WHERE gm.group_id = ?
+       ORDER BY (u.role = 'professor') DESC, u.username ASC`,
+      [req.params.id]
+    );
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── DELETE /api/groups/:id/leave ────────────────────────────────
+   Un étudiant quitte un groupe lui-même
+─────────────────────────────────────────────────────────────── */
+router.delete('/:id/leave', verifyToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const group = await db.get('SELECT * FROM study_groups WHERE id = ?', [req.params.id]);
+    if (!group) return res.status(404).json({ error: 'Groupe introuvable.' });
+    // Le créateur ne peut pas "quitter" (il doit supprimer le groupe)
+    if (group.created_by === req.user.id) {
+      return res.status(400).json({ error: 'Le créateur doit supprimer le groupe.' });
+    }
+    await db.run('DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
+      [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── DELETE /api/groups/:id/members/:userId ──────────────────────
+   Le créateur (prof) expulse un membre
+─────────────────────────────────────────────────────────────── */
+router.delete('/:id/members/:userId', verifyToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const group = await db.get('SELECT * FROM study_groups WHERE id = ?', [req.params.id]);
+    if (!group) return res.status(404).json({ error: 'Groupe introuvable.' });
+    if (group.created_by !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Non autorisé.' });
+    }
+    // On ne peut pas expulser le créateur
+    if (parseInt(req.params.userId) === group.created_by) {
+      return res.status(400).json({ error: 'Impossible d\'expulser le créateur.' });
+    }
+    await db.run('DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
+      [req.params.id, req.params.userId]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

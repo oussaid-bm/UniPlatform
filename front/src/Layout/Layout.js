@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  LAYOUT — la structure commune des pages internes
+//  Affiche la barre latérale (navigation) à gauche et la page active à droite.
+//  <Outlet /> = emplacement où React Router insère la page courante
+//  (Annonces, Cours, Groupes...). Le menu s'adapte au rôle (prof/étudiant).
+// ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';

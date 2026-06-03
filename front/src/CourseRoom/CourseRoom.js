@@ -1,3 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  SALLE DE COURS (CourseRoom) — l'écran plein de la visioconférence
+//  Assemble : la zone vidéo (VideoChat), le chat/fichiers à droite,
+//  la barre du haut, la file d'attente d'admission (prof) et le panneau
+//  participants coulissant (avec muter/expulser pour le prof).
+//  Gère l'état de la session (qui est connecté, qui demande à rejoindre).
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -17,6 +24,9 @@ import {
   onJoinRequestAccepted,
   onJoinRequestRejected,
   onParticipantsUpdate,
+  forceMuteStudent,
+  kickFromVideo,
+  onKickedFromVideo,
 } from '../socketConnection/socketConn';
 import VideoChat from './VideoChat';
 import TextChat from './TextChat';
@@ -38,6 +48,12 @@ const CheckIcon = () => (
 );
 const XIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+);
+const MicOffIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+);
+const KickIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
 );
 
 const useTimer = (running) => {
@@ -142,6 +158,13 @@ const CourseRoom = () => {
       setParticipants(list);
     });
 
+    // Étudiant : expulsé de la session vidéo par le professeur
+    const unsubKicked = onKickedFromVideo(() => {
+      setInVideoSession(false);
+      setJoinStatus('rejected'); // évite la re-admission automatique ; bouton "Redemander" dispo
+      window.alert('Vous avez été retiré de la session vidéo par le professeur.');
+    });
+
     return () => {
       unsubStart?.();
       unsubEnd?.();
@@ -149,10 +172,21 @@ const CourseRoom = () => {
       unsubAccepted?.();
       unsubRejected?.();
       unsubParticipants?.();
+      unsubKicked?.();
       dispatch(clearMessages());
       dispatch(setVideoSessionActive({ active: false, professorSocketId: null }));
     };
   }, [courseId, token]);
+
+  /* ── Actions prof : muter / expulser un étudiant ──────────── */
+  const handleMuteParticipant = (socketId) => {
+    forceMuteStudent(socketId);
+  };
+  const handleKickParticipant = (socketId, username) => {
+    if (window.confirm(`Expulser ${username} de la session vidéo ?`)) {
+      kickFromVideo(courseId, socketId);
+    }
+  };
 
   // Étudiant : envoyer demande d'admission automatiquement quand session démarre
   useEffect(() => {
@@ -318,6 +352,24 @@ const CourseRoom = () => {
                   <span className="room_online_name">{p.username}{p.username === user?.username ? ' (moi)' : ''}</span>
                   <span className="room_online_role">{p.role === 'professor' ? 'Professeur' : 'Étudiant'}</span>
                 </div>
+                {isProfessor && p.role !== 'professor' && p.username !== user?.username && (
+                  <div className="room_participant_actions">
+                    <button
+                      className="room_participant_btn mute"
+                      onClick={() => handleMuteParticipant(p.socketId)}
+                      title="Couper le micro"
+                    >
+                      <MicOffIcon />
+                    </button>
+                    <button
+                      className="room_participant_btn kick"
+                      onClick={() => handleKickParticipant(p.socketId, p.username)}
+                      title="Expulser de la session"
+                    >
+                      <KickIcon />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {participants.length === 0 && (

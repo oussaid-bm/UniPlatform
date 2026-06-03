@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES ANNONCES
+//  Le professeur publie des annonces ciblées par filière ; les étudiants
+//  de cette filière les voient et reçoivent un email de notification.
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');

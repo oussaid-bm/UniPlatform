@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE COURS & DEVOIRS
+//  Liste les cours (avec fichiers PDF) et les devoirs.
+//  Prof : crée des cours/devoirs, dépose des PDF, note les travaux rendus.
+//  Étudiant : consulte, télécharge les supports, dépose son travail (PDF).
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setCourses, addCourse, removeCourse } from '../../store/slices/coursesSlice';

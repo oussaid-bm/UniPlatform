@@ -1,20 +1,30 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PONT SOCKET.IO (côté client)
+//  Ce fichier centralise TOUTE la communication temps réel avec le serveur.
+//  Chaque fonction "emit..." ENVOIE un message ; chaque "on..." ÉCOUTE un message.
+//  On garde UNE seule connexion (variable `socket`) partagée par toute l'app.
+// ─────────────────────────────────────────────────────────────────────────────
 import io from 'socket.io-client';
 
-let socket = null;
+let socket = null; // la connexion unique (créée à la connexion de l'utilisateur)
 
+// Établit la connexion au serveur Socket.io après le login.
 export const connectWithSocketIOServer = (token) => {
-  if (socket) socket.disconnect();
+  if (socket) socket.disconnect(); // ferme une éventuelle ancienne connexion
+  // En production, le serveur est sur la même origine ; en dev, sur le port 3003.
   const serverUrl = process.env.NODE_ENV === 'production'
     ? window.location.origin
     : 'http://localhost:3003';
   socket = io(serverUrl);
 
+  // Dès que la connexion est établie, on envoie le token pour s'identifier.
   socket.on('connect', () => {
     console.log('Socket connecté:', socket.id);
     if (token) socket.emit('authenticate', token);
   });
 };
 
+// Permet aux composants de récupérer la connexion pour envoyer/écouter des événements.
 export const getSocket = () => socket;
 
 // ─── CHAT TEXTE ────────────────────────────────────────────────────────────────
@@ -159,6 +169,15 @@ export const forceMuteStudent = (studentSocketId) => {
 
 export const forceUnmuteStudent = (studentSocketId) => {
   socket.emit('force-unmute-student', { studentSocketId });
+};
+
+export const kickFromVideo = (courseId, studentSocketId) => {
+  socket.emit('kick-from-video', { courseId, studentSocketId });
+};
+
+export const onKickedFromVideo = (cb) => {
+  socket.on('kicked-from-video', cb);
+  return () => socket.off('kicked-from-video', cb);
 };
 
 export const emitMicState = (courseId, muted) => {

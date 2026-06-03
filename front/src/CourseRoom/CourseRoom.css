@@ -199,6 +199,24 @@
   font-size: 12px; color: rgba(255,255,255,0.3);
 }
 
+/* ── Actions prof sur un participant (muter / expulser) ──── */
+.room_participant_actions { display: flex; gap: 5px; flex-shrink: 0; }
+.room_participant_btn {
+  width: 28px; height: 28px;
+  border: 1px solid transparent; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+}
+.room_participant_btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.room_participant_btn.mute {
+  background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #FCD34D;
+}
+.room_participant_btn.mute:hover { background: rgba(245,158,11,0.28); }
+.room_participant_btn.kick {
+  background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #F87171;
+}
+.room_participant_btn.kick:hover { background: rgba(239,68,68,0.28); }
+
 /* ── VIDEO SECTION ────────────────────────────────────── */
 .video_section {
   flex: 1;

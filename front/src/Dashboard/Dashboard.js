@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  DASHBOARD — tableau de bord (vue d'ensemble)
+//  Affiche un résumé pour l'utilisateur connecté.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

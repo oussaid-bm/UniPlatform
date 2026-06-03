@@ -1,5 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES FICHIERS DE COURS (supports PDF)
+//  Le professeur dépose des PDF dans un cours ; les étudiants les téléchargent.
+//  Stockage sur le disque (dossier uploads), métadonnées en base (course_files).
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
-const multer  = require('multer');
+const multer  = require('multer'); // gestion de l'upload de fichiers
 const path    = require('path');
 const fs      = require('fs');
 const { getDb }             = require('../db');

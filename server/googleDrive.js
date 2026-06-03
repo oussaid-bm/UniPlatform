@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  INTÉGRATION GOOGLE DRIVE (optionnelle)
+//  Permet de stocker les fichiers sur Google Drive au lieu du disque local.
+//  Nécessite un compte de service (service-account.json) et un dossier cible.
+//  Non utilisé par défaut : le stockage se fait sur le disque (voir routes/files.js).
+// ─────────────────────────────────────────────────────────────────────────────
 require('dotenv').config();
 const { google } = require('googleapis');
 const path   = require('path');

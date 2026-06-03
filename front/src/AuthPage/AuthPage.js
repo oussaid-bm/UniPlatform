@@ -1,3 +1,12 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE D'AUTHENTIFICATION
+//  Gère 4 vues dans un seul composant (variable `view`) :
+//   - 'login'    : connexion
+//   - 'register' : inscription (avec choix du rôle et de la filière)
+//   - 'forgot'   : demande de réinitialisation du mot de passe
+//   - 'reset'    : saisie du nouveau mot de passe (via le lien reçu par email)
+//  Après connexion réussie : stocke le token (Redux) et ouvre la connexion Socket.io.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

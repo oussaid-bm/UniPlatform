@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  FILEPANEL — panneau "Fichiers" dans la salle de cours
+//  Le professeur dépose des PDF (supports de cours) ; tout le monde les télécharge.
+//  Glisser-déposer ou clic ; affiche la liste avec taille et auteur.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
 

@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES COURS
+//  Création / consultation / suppression des cours et devoirs.
+//  Colonne "type" : 'cours' ou 'devoir'.
+//  Colonne "is_live_session" : 1 = salle de visioconférence, 0 = cours classique.
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');

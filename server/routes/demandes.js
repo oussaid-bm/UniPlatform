@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES DEMANDES
+//  Système de messagerie "administrative" : un étudiant ou un professeur envoie
+//  une demande à l'administration (avec un service) ou à un professeur précis.
+//  Le destinataire peut répondre (et modifier sa réponse).
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');

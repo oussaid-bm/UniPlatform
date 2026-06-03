@@ -1,9 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES D'AUTHENTIFICATION
+//  Inscription, connexion, vérification email, mot de passe oublié/réinitialisé.
+//  Sécurité : mots de passe hachés (bcrypt), jetons signés (jwt),
+//  jetons aléatoires (crypto), vérification du domaine email (dns/MX).
+// ─────────────────────────────────────────────────────────────────────────────
 require('dotenv').config();
 const express  = require('express');
-const bcrypt   = require('bcryptjs');
-const jwt      = require('jsonwebtoken');
-const crypto   = require('crypto');
-const dns      = require('dns').promises;
+const bcrypt   = require('bcryptjs');         // hachage des mots de passe (sens unique)
+const jwt      = require('jsonwebtoken');     // création/vérification des jetons de session
+const crypto   = require('crypto');           // génération de jetons aléatoires (vérif. email, reset)
+const dns      = require('dns').promises;     // vérifie qu'un domaine email existe (enregistrement MX)
 const { getDb }                    = require('../db');
 const { sendVerificationEmail }    = require('../email');
 const { scheduleBounceCheck }      = require('../bounceChecker');

@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  SUBMISSIONPANEL — remise et notation des devoirs
+//  Étudiant : dépose/remplace son PDF, voit sa note et le commentaire.
+//  Professeur : voit tous les travaux rendus, attribue une note /20 + commentaire.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
 

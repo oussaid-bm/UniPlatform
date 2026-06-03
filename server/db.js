@@ -1,182 +1,222 @@
-const { open } = require('sqlite');
-const sqlite3 = require('sqlite3');
-const path = require('path');
+// ─────────────────────────────────────────────────────────────────────────────
+//  BASE DE DONNÉES (MySQL)
+//  Ce fichier : ouvre un "pool" de connexions MySQL, crée les tables si elles
+//  n'existent pas, et expose une petite couche de compatibilité (get/all/run/exec)
+//  pour que le reste du code (les routes) n'ait pas besoin d'être modifié.
+//
+//  Wrapper de compatibilité :
+//    db.get(sql, params)  → retourne UNE ligne (ou undefined)
+//    db.all(sql, params)  → retourne un TABLEAU de lignes
+//    db.run(sql, params)  → exécute INSERT/UPDATE/DELETE
+//                           et retourne { lastID, changes } (comme SQLite)
+//    db.exec(sql)         → exécute une requête brute (création de table)
+// ─────────────────────────────────────────────────────────────────────────────
+require('dotenv').config();
+const mysql = require('mysql2/promise');
 
-let db;
+// Paramètres de connexion (lus depuis le fichier .env)
+const DB_HOST = process.env.DB_HOST || 'localhost';
+const DB_PORT = process.env.DB_PORT || 3306;
+const DB_USER = process.env.DB_USER || 'root';
+const DB_PASS = process.env.DB_PASSWORD || '';
+const DB_NAME = process.env.DB_NAME || 'uniplatform';
 
-const getDb = async () => {
-  if (db) return db;
+let dbWrapper; // singleton : on garde UNE seule instance partagée
 
-  db = await open({
-    filename: path.join(__dirname, 'database.db'),
-    driver: sqlite3.Database,
+// Crée la base de données si elle n'existe pas encore, puis le pool de connexions.
+async function createPool() {
+  // 1) Connexion temporaire SANS base pour pouvoir la créer si besoin
+  const root = await mysql.createConnection({
+    host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
   });
+  await root.query(
+    `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  );
+  await root.end();
 
-  await db.exec('PRAGMA foreign_keys = ON;');
+  // 2) Pool de connexions vers la base (réutilise les connexions, plus efficace)
+  return mysql.createPool({
+    host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+    database: DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    namedPlaceholders: false,
+  });
+}
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('student', 'professor', 'admin')) DEFAULT 'student',
-      filiere TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now'))
-    );
+// getDb() : au premier appel crée tout ; ensuite réutilise l'instance.
+const getDb = async () => {
+  if (dbWrapper) return dbWrapper;
 
-    CREATE TABLE IF NOT EXISTS courses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      professor_id INTEGER NOT NULL,
-      filiere TEXT DEFAULT '',
-      is_active INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+  const pool = await createPool();
+
+  // ── Couche de compatibilité (imite l'API du wrapper SQLite) ──
+  dbWrapper = {
+    async get(sql, params = []) {
+      const [rows] = await pool.query(sql, params);
+      return rows[0]; // première ligne ou undefined
+    },
+    async all(sql, params = []) {
+      const [rows] = await pool.query(sql, params);
+      return rows;
+    },
+    async run(sql, params = []) {
+      const [result] = await pool.query(sql, params);
+      // SQLite renvoyait lastID/changes → on les recrée depuis MySQL
+      return { lastID: result.insertId, changes: result.affectedRows };
+    },
+    async exec(sql) {
+      await pool.query(sql);
+    },
+  };
+
+  // ── CRÉATION DES TABLES ──
+  // En MySQL il faut créer les tables dans l'ordre (les clés étrangères
+  // référencent des tables qui doivent déjà exister). On exécute chaque
+  // CREATE séparément (mysql2 n'autorise qu'une requête à la fois par défaut).
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      role ENUM('student','professor','admin') NOT NULL DEFAULT 'student',
+      filiere VARCHAR(255) DEFAULT '',
+      email_verified TINYINT DEFAULT 0,
+      verification_token VARCHAR(255) DEFAULT NULL,
+      token_expires_at VARCHAR(64) DEFAULT NULL,
+      reset_token VARCHAR(255) DEFAULT NULL,
+      reset_token_expires VARCHAR(64) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
+
+    `CREATE TABLE IF NOT EXISTS courses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      professor_id INT NOT NULL,
+      filiere VARCHAR(255) DEFAULT '',
+      is_active TINYINT DEFAULT 0,
+      is_live_session TINYINT DEFAULT 0,
+      type VARCHAR(50) DEFAULT 'cours',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (professor_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_id INTEGER NOT NULL,
-      sender_id INTEGER NOT NULL,
+    `CREATE TABLE IF NOT EXISTS messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      course_id INT NOT NULL,
+      sender_id INT NOT NULL,
       content TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
       FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS announcements (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
+    `CREATE TABLE IF NOT EXISTS announcements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
       content TEXT NOT NULL,
-      author_id INTEGER NOT NULL,
-      author_name TEXT NOT NULL,
-      filiere TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
+      author_id INT NOT NULL,
+      author_name VARCHAR(255) NOT NULL,
+      filiere VARCHAR(255) DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS demandes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
+    `CREATE TABLE IF NOT EXISTS demandes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
       content TEXT NOT NULL,
-      sender_id INTEGER NOT NULL,
-      sender_name TEXT NOT NULL,
-      sender_role TEXT NOT NULL,
-      recipient_type TEXT NOT NULL DEFAULT 'admin',
-      recipient_id INTEGER DEFAULT NULL,
-      recipient_name TEXT DEFAULT 'Administration',
-      status TEXT NOT NULL DEFAULT 'en_attente',
-      response TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
+      sender_id INT NOT NULL,
+      sender_name VARCHAR(255) NOT NULL,
+      sender_role VARCHAR(50) NOT NULL,
+      recipient_type VARCHAR(50) NOT NULL DEFAULT 'admin',
+      recipient_id INT DEFAULT NULL,
+      recipient_name VARCHAR(255) DEFAULT 'Administration',
+      status VARCHAR(20) NOT NULL DEFAULT 'en_attente',
+      response TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS study_groups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      filiere TEXT DEFAULT '',
-      created_by INTEGER NOT NULL,
-      creator_name TEXT NOT NULL DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
+    `CREATE TABLE IF NOT EXISTS study_groups (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      filiere VARCHAR(255) DEFAULT '',
+      created_by INT NOT NULL,
+      creator_name VARCHAR(255) NOT NULL DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS group_members (
-      group_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      joined_at TEXT DEFAULT (datetime('now')),
+    `CREATE TABLE IF NOT EXISTS group_members (
+      group_id INT NOT NULL,
+      user_id INT NOT NULL,
+      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (group_id, user_id),
       FOREIGN KEY (group_id) REFERENCES study_groups(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS course_files (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_id INTEGER NOT NULL,
-      filename TEXT NOT NULL,
-      original_name TEXT NOT NULL,
-      size INTEGER DEFAULT 0,
-      uploaded_by INTEGER NOT NULL,
-      uploader_name TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
+    `CREATE TABLE IF NOT EXISTS course_files (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      course_id INT NOT NULL,
+      filename VARCHAR(255) NOT NULL,
+      original_name VARCHAR(255) NOT NULL,
+      size INT DEFAULT 0,
+      uploaded_by INT NOT NULL,
+      uploader_name VARCHAR(255) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
       FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB`,
 
-    CREATE TABLE IF NOT EXISTS homework_submissions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      student_name TEXT NOT NULL,
-      filename TEXT NOT NULL,
-      original_name TEXT NOT NULL,
-      size INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+    `CREATE TABLE IF NOT EXISTS homework_submissions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      course_id INT NOT NULL,
+      student_id INT NOT NULL,
+      student_name VARCHAR(255) NOT NULL,
+      filename VARCHAR(255) NOT NULL,
+      original_name VARCHAR(255) NOT NULL,
+      size INT DEFAULT 0,
+      grade DECIMAL(4,2) DEFAULT NULL,
+      grade_comment TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
       FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-  `);
+    ) ENGINE=InnoDB`,
 
-  // Migrations pour les colonnes ajoutées sur une DB existante
-  const migrate = async (sql) => { try { await db.exec(sql); } catch {} };
-  await migrate('ALTER TABLE users ADD COLUMN filiere TEXT DEFAULT ""');
-  await migrate('ALTER TABLE courses ADD COLUMN filiere TEXT DEFAULT ""');
-  await migrate('ALTER TABLE announcements ADD COLUMN filiere TEXT DEFAULT ""');
-  await migrate('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0');
-  await migrate('ALTER TABLE users ADD COLUMN verification_token TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE users ADD COLUMN token_expires_at TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE courses ADD COLUMN is_live_session INTEGER DEFAULT 0');
-  await migrate('ALTER TABLE users ADD COLUMN reset_token TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE users ADD COLUMN reset_token_expires TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE courses ADD COLUMN type TEXT DEFAULT "cours"');
-  await migrate('ALTER TABLE homework_submissions ADD COLUMN grade REAL DEFAULT NULL');
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS global_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender_id INTEGER NOT NULL,
-      sender_name TEXT NOT NULL,
-      content TEXT DEFAULT '',
-      file_name TEXT DEFAULT NULL,
-      file_original TEXT DEFAULT NULL,
-      file_size INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS group_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      group_id INTEGER NOT NULL,
-      sender_id INTEGER NOT NULL,
-      sender_name TEXT NOT NULL,
-      content TEXT DEFAULT '',
-      file_name TEXT DEFAULT NULL,
-      file_original TEXT DEFAULT NULL,
-      file_size INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-  `);
+    `CREATE TABLE IF NOT EXISTS global_messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      sender_id INT NOT NULL,
+      sender_name VARCHAR(255) NOT NULL,
+      content TEXT,
+      file_name VARCHAR(255) DEFAULT NULL,
+      file_original VARCHAR(255) DEFAULT NULL,
+      file_size INT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
 
-  // Colonnes fichier sur les tables chat (si créées avant cet ajout)
-  await migrate('ALTER TABLE global_messages ADD COLUMN file_name TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE global_messages ADD COLUMN file_original TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE global_messages ADD COLUMN file_size INTEGER DEFAULT 0');
-  await migrate('ALTER TABLE group_messages ADD COLUMN file_name TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE group_messages ADD COLUMN file_original TEXT DEFAULT NULL');
-  await migrate('ALTER TABLE group_messages ADD COLUMN file_size INTEGER DEFAULT 0');
-  await migrate('ALTER TABLE homework_submissions ADD COLUMN grade_comment TEXT DEFAULT ""');
+    `CREATE TABLE IF NOT EXISTS group_messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      group_id INT NOT NULL,
+      sender_id INT NOT NULL,
+      sender_name VARCHAR(255) NOT NULL,
+      content TEXT,
+      file_name VARCHAR(255) DEFAULT NULL,
+      file_original VARCHAR(255) DEFAULT NULL,
+      file_size INT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
+  ];
 
-  // Table chat global (CREATE IF NOT EXISTS = sans risque)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS global_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender_id INTEGER NOT NULL,
-      sender_name TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-  `);
+  for (const sql of tables) {
+    await pool.query(sql);
+  }
 
-  return db;
+  console.log(`✅ Base MySQL "${DB_NAME}" prête (${tables.length} tables).`);
+  return dbWrapper;
 };
 
 module.exports = { getDb };

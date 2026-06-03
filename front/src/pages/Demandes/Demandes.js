@@ -1,3 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE DEMANDES
+//  Envoi de demandes à l'administration (avec choix du service) ou à un professeur.
+//  Étudiant : voit ses demandes envoyées.
+//  Professeur : deux onglets — demandes reçues des étudiants, et échanges entre profs.
+//  Le destinataire peut répondre (et modifier sa réponse).
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import API from '../../config';

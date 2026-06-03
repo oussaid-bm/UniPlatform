@@ -1,22 +1,34 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DES SOUMISSIONS DE DEVOIRS
+//  Gère : l'étudiant qui dépose son travail (PDF), le professeur qui le note,
+//  le téléchargement et la suppression.
+// ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
-const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
+const multer  = require('multer'); // librairie qui gère l'upload de fichiers (multipart/form-data)
+const path    = require('path');   // utilitaires de chemins de fichiers
+const fs      = require('fs');     // accès au système de fichiers (lire/écrire/supprimer)
 const { getDb }       = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { sendSubmissionEmail, sendGradeEmail } = require('../email');
 
 const router = express.Router();
 
+// Dossier où sont stockés les PDF déposés.
+// On peut le configurer via la variable UPLOADS_PATH (ex : disque externe),
+// sinon on utilise le dossier "uploads" à côté du serveur.
 const uploadsDir = process.env.UPLOADS_PATH
   ? path.resolve(process.env.UPLOADS_PATH.trim())
   : path.join(__dirname, '..', 'uploads');
 
+// Crée le dossier s'il n'existe pas encore (récursif = crée aussi les parents).
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+// Configuration de multer : OÙ stocker le fichier et SOUS QUEL NOM.
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename:    (_req, file, cb) => {
+    // Nom unique : "sub-<timestamp>-<nombre aléatoire>.pdf"
+    // → évite que deux fichiers du même nom s'écrasent.
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, 'sub-' + unique + path.extname(file.originalname));
   },
@@ -24,15 +36,20 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
+  // On n'accepte QUE les PDF (sécurité : pas d'exécutables, images, etc.)
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') cb(null, true);
     else cb(new Error('Seuls les fichiers PDF sont acceptés.'));
   },
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 25 * 1024 * 1024 }, // taille max : 25 Mo
 });
 
-/* ── Soumettre / remplacer son travail (étudiant) ─────────────────────────── */
+/* ── Soumettre / remplacer son travail (étudiant) ─────────────────────────────
+   POST /api/submissions/upload/:courseId
+   upload.single('file') = multer traite UN fichier nommé "file" avant notre code.
+─────────────────────────────────────────────────────────────────────────────── */
 router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req, res) => {
+  // Seul un étudiant peut déposer un travail
   if (req.user.role !== 'student')
     return res.status(403).json({ error: 'Réservé aux étudiants.' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
@@ -40,7 +57,8 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
   try {
     const db = await getDb();
 
-    // Supprimer l'ancienne soumission si elle existe
+    // Un étudiant n'a qu'UNE soumission par devoir : s'il redépose,
+    // on supprime l'ancienne (fichier sur le disque + ligne en base) avant d'enregistrer la nouvelle.
     const existing = await db.get(
       'SELECT * FROM homework_submissions WHERE course_id = ? AND student_id = ?',
       [req.params.courseId, req.user.id]
@@ -51,6 +69,8 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
       await db.run('DELETE FROM homework_submissions WHERE id = ?', [existing.id]);
     }
 
+    // Enregistre la nouvelle soumission en base.
+    // filename = nom sur le disque ; original_name = nom d'origine choisi par l'étudiant.
     const result = await db.run(
       `INSERT INTO homework_submissions (course_id, student_id, student_name, filename, original_name, size)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -58,7 +78,7 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
        req.file.filename, req.file.originalname, req.file.size]
     );
 
-    // Notifier le professeur du cours
+    // Récupère l'email du professeur (jointure courses ↔ users) pour le prévenir.
     const course = await db.get(
       `SELECT c.title, u.email, u.username
        FROM courses c JOIN users u ON c.professor_id = u.id
@@ -129,12 +149,16 @@ router.get('/:courseId', verifyToken, async (req, res) => {
   }
 });
 
-/* ── Noter une soumission (prof uniquement) ───────────────────────────────── */
+/* ── Noter une soumission (prof uniquement) ───────────────────────────────────
+   PATCH /api/submissions/:id/grade   (PATCH = modification partielle)
+─────────────────────────────────────────────────────────────────────────────── */
 router.patch('/:id/grade', verifyToken, async (req, res) => {
+  // Contrôle de rôle : seul un professeur peut noter.
   if (req.user.role !== 'professor')
     return res.status(403).json({ error: 'Réservé aux professeurs.' });
 
   const { grade, grade_comment } = req.body;
+  // Validation : si une note est fournie, elle doit être un nombre entre 0 et 20.
   if (grade !== null && grade !== undefined) {
     const g = parseFloat(grade);
     if (isNaN(g) || g < 0 || g > 20)
@@ -146,13 +170,15 @@ router.patch('/:id/grade', verifyToken, async (req, res) => {
     const sub = await db.get('SELECT * FROM homework_submissions WHERE id = ?', [req.params.id]);
     if (!sub) return res.status(404).json({ error: 'Soumission introuvable.' });
 
+    // g = note convertie en nombre, ou null si le champ est vide (= "non noté").
     const g = (grade !== null && grade !== undefined && grade !== '') ? parseFloat(grade) : null;
     await db.run(
       'UPDATE homework_submissions SET grade = ?, grade_comment = ? WHERE id = ?',
       [g, grade_comment || '', req.params.id]
     );
 
-    // Notifier l'étudiant par email
+    // On prévient l'étudiant par email qu'il a reçu une note.
+    // .catch(() => {}) → si l'envoi échoue, on ignore (ne bloque pas la réponse).
     const course = await db.get('SELECT title FROM courses WHERE id = ?', [sub.course_id]);
     const student = await db.get('SELECT email FROM users WHERE id = ?', [sub.student_id]);
     if (student && course) {

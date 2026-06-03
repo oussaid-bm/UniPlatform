@@ -1,10 +1,19 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ENVOI D'EMAILS (Nodemailer + Gmail)
+//  Ce fichier définit le "transporteur" (la connexion au serveur d'envoi Gmail)
+//  et toutes les fonctions qui composent et envoient un email HTML pour chaque
+//  événement : vérification de compte, cours en direct, nouveau devoir,
+//  fichier déposé, note attribuée, réinitialisation de mot de passe.
+// ─────────────────────────────────────────────────────────────────────────────
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-const APP_URL    = process.env.APP_URL    || 'http://localhost:3003';
-const EMAIL_USER = process.env.EMAIL_USER || '';
-const EMAIL_PASS = process.env.EMAIL_PASS || '';
+const APP_URL    = process.env.APP_URL    || 'http://localhost:3003'; // adresse publique de l'app (pour les liens)
+const EMAIL_USER = process.env.EMAIL_USER || ''; // adresse Gmail d'envoi
+const EMAIL_PASS = process.env.EMAIL_PASS || ''; // "mot de passe d'application" Gmail (pas le vrai mot de passe)
 
+// Le transporteur = la configuration de connexion au serveur d'envoi (SMTP) de Gmail.
+// Port 587 + STARTTLS : connexion chiffrée, port ouvert sur la plupart des réseaux.
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,

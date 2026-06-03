@@ -1,12 +1,20 @@
-require('dotenv').config();
+// ═════════════════════════════════════════════════════════════════════════════
+//  POINT D'ENTRÉE DU SERVEUR
+//  Ce fichier fait DEUX choses sur un même port :
+//   1. Sert l'API REST (Express) → requêtes HTTP classiques (login, cours, devoirs…)
+//   2. Sert la communication temps réel (Socket.io) → chat, signalisation WebRTC,
+//      notifications, listes "en ligne".
+// ═════════════════════════════════════════════════════════════════════════════
+require('dotenv').config();            // charge les variables du fichier .env
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
+const cors = require('cors');          // autorise le frontend (autre port) à appeler l'API
 const path = require('path');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('./db');
 
+// Chaque fichier de routes regroupe les endpoints d'un domaine fonctionnel.
 const authRoutes = require('./routes/auth');
 const coursesRoutes = require('./routes/courses');
 const announcementsRoutes = require('./routes/announcements');
@@ -18,14 +26,17 @@ const chatRoutes        = require('./routes/chat');
 const { sendLiveSessionEmail } = require('./email');
 
 const app = express();
-const server = http.createServer(app);
+const server = http.createServer(app); // serveur HTTP qui portera à la fois Express ET Socket.io
 
+// Socket.io s'attache au même serveur HTTP. cors origin '*' = accepte toutes les origines.
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
-app.use(cors());
-app.use(express.json());
+app.use(cors());            // active CORS pour toutes les routes
+app.use(express.json());    // parse automatiquement le corps JSON des requêtes (req.body)
+
+// Branche chaque groupe de routes sous son préfixe d'URL.
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -60,13 +71,17 @@ app.get('/{*path}', (req, res) => {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
 
-// socketId -> { userId, username, role, courseId }
+// ── ÉTAT EN MÉMOIRE (vit tant que le serveur tourne) ──
+// On suit qui est connecté et qui participe à quelle session vidéo.
+// Un "socketId" identifie UNE connexion navigateur (un onglet).
+
+// socketId -> { userId, username, role } : qui est derrière chaque connexion
 const connectedUsers = {};
-// courseId -> Set of socketIds (participants in video session)
+// courseId -> Set de socketIds : les participants présents dans une session vidéo
 const courseRooms = {};
-// courseId -> { professorSocketId, professorName, startedAt }
+// courseId -> { professorSocketId, professorName, startedAt } : les cours actuellement EN DIRECT
 const liveCourses = {};
-// courseId -> { socketId: username }
+// courseId -> { socketId: {username, role} } : détail des participants (pour la liste)
 const courseParticipants = {};
 
 const getRoomKey = (courseId) => `course-${courseId}`;
@@ -91,10 +106,17 @@ const emitGlobalOnline = () =>
 const emitGroupOnline = (groupId) =>
   io.to(`group-${groupId}`).emit('group-online', { groupId, users: getOnlineInRoom(`group-${groupId}`) });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  GESTION TEMPS RÉEL (Socket.io)
+//  Ce bloc s'exécute À CHAQUE nouvelle connexion d'un navigateur.
+//  Chaque socket.on('événement', ...) écoute un message envoyé par le client.
+//  socket.emit  → envoie à CE client ; io.to(room).emit → envoie à toute une "room".
+// ═══════════════════════════════════════════════════════════════════════════
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion socket:', socket.id);
 
-  // Authentification socket via token JWT
+  // Dès la connexion, le client envoie son token JWT pour s'identifier.
+  // On mémorise qui il est (connectedUsers) pour les messages/participants suivants.
   socket.on('authenticate', (token) => {
     try {
       const user = jwt.verify(token, JWT_SECRET);
@@ -318,15 +340,20 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Offre WebRTC du professeur vers l'étudiant
+  // ── SIGNALISATION WebRTC ──
+  // IMPORTANT : la vidéo NE passe PAS par le serveur. Le serveur ne fait QUE
+  // transmettre les "messages de mise en relation" entre deux navigateurs.
+  // Une fois connectés, ils s'échangent la vidéo en DIRECT (pair-à-pair / P2P).
+  //
+  // Étape 1 : le prof envoie une OFFRE (sa description de session SDP) à un étudiant.
   socket.on('webrtc-offer', ({ targetSocketId, offer }) => {
     io.to(targetSocketId).emit('webrtc-offer', {
-      fromSocketId: socket.id,
+      fromSocketId: socket.id, // pour que l'étudiant sache à qui répondre
       offer,
     });
   });
 
-  // Réponse WebRTC de l'étudiant vers le professeur
+  // Étape 2 : l'étudiant renvoie une RÉPONSE (sa propre description SDP) au prof.
   socket.on('webrtc-answer', ({ targetSocketId, answer }) => {
     io.to(targetSocketId).emit('webrtc-answer', {
       fromSocketId: socket.id,
@@ -334,7 +361,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Échange de candidats ICE
+  // Étape 3 : les deux s'échangent des "candidats ICE" = chemins réseau possibles
+  // (adresses IP/ports) pour trouver comment se joindre à travers les routeurs (NAT).
   socket.on('ice-candidate', ({ targetSocketId, candidate }) => {
     io.to(targetSocketId).emit('ice-candidate', {
       fromSocketId: socket.id,
@@ -396,6 +424,25 @@ io.on('connection', (socket) => {
     const user = connectedUsers[socket.id];
     if (!user || user.role !== 'professor') return;
     io.to(studentSocketId).emit('force-unmuted');
+  });
+
+  // Prof expulse un étudiant de la session vidéo
+  socket.on('kick-from-video', ({ courseId, studentSocketId }) => {
+    const user = connectedUsers[socket.id];
+    if (!user || user.role !== 'professor') return;
+    courseId = String(courseId);
+    // Notifie l'étudiant expulsé
+    io.to(studentSocketId).emit('kicked-from-video');
+    // Retire l'étudiant de la salle et informe les autres
+    const target = io.sockets.sockets.get(studentSocketId);
+    if (target) target.leave(`video-${courseId}`);
+    if (courseRooms[courseId]) courseRooms[courseId].delete(studentSocketId);
+    if (courseParticipants[courseId]) {
+      delete courseParticipants[courseId][studentSocketId];
+      const parts = Object.entries(courseParticipants[courseId]).map(([sid, u]) => ({ socketId: sid, username: u.username, role: u.role }));
+      io.to(`video-${courseId}`).emit('participants-update', parts);
+    }
+    io.to(`video-${courseId}`).emit('peer-left', { socketId: studentSocketId });
   });
 
   // Étudiant informe le prof de l'état de son micro
@@ -520,7 +567,7 @@ setInterval(async () => {
     const db = await getDb();
     const result = await db.run(
       `DELETE FROM users WHERE email_verified = 0
-       AND created_at < datetime('now', '-24 hours')`
+       AND created_at < (NOW() - INTERVAL 24 HOUR)`
     );
     if (result.changes > 0)
       console.log(`🗑️ ${result.changes} compte(s) non vérifié(s) supprimé(s)`);

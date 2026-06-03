@@ -133,6 +133,66 @@
 .group_delete_btn:hover { background: #FEE2E2; }
 .group_delete_btn svg { width: 13px; height: 13px; }
 
+/* ── BOUTONS D'ACTION GROUPE (gérer / quitter / supprimer) ── */
+.group_item_actions { display: flex; gap: 4px; flex-shrink: 0; }
+.group_action_btn {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: #F2EDE4; border: 1px solid #E5E0D8; color: #1B2B4B;
+  border-radius: 7px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; opacity: 0.55;
+}
+.group_item:hover .group_action_btn { opacity: 1; }
+
+/* Bouton quitter/gérer dans l'en-tête du groupe ouvert */
+.group_leave_header_btn {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: 8px; padding: 7px 14px;
+  background: #FEF2F2; border: 1.5px solid #FECACA; color: #DC2626;
+  border-radius: 20px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all 0.15s; flex-shrink: 0;
+}
+.group_leave_header_btn:hover { background: #FEE2E2; }
+.group_leave_header_btn svg { width: 15px; height: 15px; }
+.group_leave_header_btn.manage {
+  background: #F2EDE4; border-color: #E5E0D8; color: #1B2B4B;
+}
+.group_leave_header_btn.manage:hover { background: #E5E0D8; }
+.group_action_btn:hover { background: #E5E0D8; }
+.group_action_btn.danger {
+  background: #FEF2F2; border-color: #FECACA; color: #DC2626;
+}
+.group_action_btn.danger:hover { background: #FEE2E2; }
+.group_action_btn svg { width: 14px; height: 14px; }
+
+/* ── MODAL GESTION DES MEMBRES ───────────────────────────── */
+.members_manage_list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 360px; overflow-y: auto;
+  margin: 12px 0;
+}
+.member_manage_item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: #FAFAF8; border: 1px solid #E5E0D8;
+  border-radius: 10px;
+}
+.member_manage_avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.member_manage_info { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.member_manage_name { font-size: 14px; font-weight: 600; color: #1B2B4B; }
+.member_manage_role { font-size: 12px; color: #A89880; }
+.member_expel_btn {
+  padding: 6px 14px; flex-shrink: 0;
+  background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+}
+.member_expel_btn:hover { background: #FEE2E2; }
+
 /* ── EMPTY STATE ─────────────────────────────────────────── */
 .groups_empty {
   flex: 1; display: flex; flex-direction: column;

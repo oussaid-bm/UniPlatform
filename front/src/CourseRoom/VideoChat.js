@@ -1,3 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  VIDEOCHAT — le cœur technique de la visioconférence (WebRTC, côté client)
+//  Gère : l'accès caméra/micro (getUserMedia), les connexions pair-à-pair
+//  (RTCPeerConnection), l'échange offre/réponse/ICE via Socket.io, le partage
+//  d'écran, le contrôle du micro (main levée) et l'affichage des flux vidéo.
+//  RAPPEL : la vidéo circule en DIRECT entre navigateurs, pas par le serveur.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import {
@@ -12,7 +19,7 @@ import {
   onHandRaised, onHandLowered,
   onMicAccepted, onMicRejected,
   onForceMuted, onForceUnmuted,
-  onStudentMicState,
+  onStudentMicState, onKickedFromVideo,
 } from '../socketConnection/socketConn';
 
 const ICE_SERVERS = {
@@ -457,6 +464,19 @@ const VideoChat = ({
     peersRef.current = {}; setRemoteStreams({});
     onLeaveVideo();
   };
+
+  // Étudiant expulsé : couper la caméra et fermer les connexions
+  useEffect(() => {
+    if (isProfessor) return;
+    const unsub = onKickedFromVideo(() => {
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      setLocalStream(null);
+      Object.values(peersRef.current).forEach(pc => pc.close());
+      peersRef.current = {}; setRemoteStreams({});
+    });
+    return () => unsub?.();
+  }, [isProfessor]);
 
   /* ── vidéos distantes ─────────────────────────────────────────── */
   const remoteEntries = Object.entries(remoteStreams).filter(([sid]) => {

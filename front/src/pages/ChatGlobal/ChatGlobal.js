@@ -1,3 +1,10 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE CHAT GLOBAL
+//  Messagerie instantanée de toute l'université (temps réel via Socket.io).
+//  Fonctions : messages texte, partage de fichiers, et panneau coulissant
+//  listant les utilisateurs en ligne (style Discord).
+//  L'historique est chargé depuis l'API ; les nouveaux messages arrivent en direct.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getSocket } from '../../socketConnection/socketConn';

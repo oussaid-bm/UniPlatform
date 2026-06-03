@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE COURS EN LIGNE (visioconférence)
+//  Liste les sessions vidéo. Le prof crée une session puis entre dans la salle ;
+//  l'étudiant rejoint une session "EN DIRECT". Un clic ouvre la salle (CourseRoom).
+//  Ce sont les cours avec is_live_session = 1 (séparés des cours PDF classiques).
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

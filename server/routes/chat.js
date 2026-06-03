@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  ROUTES DU CHAT (historique + fichiers)
+//  Le temps réel des messages passe par Socket.io (index.js). CE fichier gère :
+//   - le chargement de l'HISTORIQUE des messages (au chargement de la page)
+//   - l'UPLOAD/téléchargement des FICHIERS partagés dans le chat global et les groupes.
+// ─────────────────────────────────────────────────────────────────────────────
 const express  = require('express');
 const path     = require('path');
 const fs       = require('fs');

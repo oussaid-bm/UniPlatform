@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE GROUPES D'ÉTUDE
+//  Liste à gauche, chat du groupe à droite (temps réel + fichiers + liste en ligne).
+//  Prof : crée un groupe (filière → choix des membres), gère/expulse les membres.
+//  Étudiant : voit ses groupes et peut les quitter.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getSocket } from '../../socketConnection/socketConn';
@@ -47,6 +53,11 @@ const DownloadIcon = () => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
   </svg>
 );
+const LeaveIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+);
 const formatSize = (b) => !b ? '' : b < 1024 ? `${b} o` : b < 1048576 ? `${(b/1024).toFixed(1)} Ko` : `${(b/1048576).toFixed(1)} Mo`;
 
 const Groupes = () => {
@@ -72,6 +83,11 @@ const Groupes = () => {
   const [selectedMembers,  setSelectedMembers]  = useState([]);
   const [loadingStudents,  setLoadingStudents]  = useState(false);
   const [creating,         setCreating]         = useState(false);
+
+  /* ── États gestion des membres ────────────────────────────── */
+  const [membersModal,  setMembersModal]  = useState(null); // groupe géré
+  const [members,       setMembers]       = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -211,6 +227,41 @@ const Groupes = () => {
     }
   };
 
+  /* ── Étudiant : quitter un groupe ─────────────────────────── */
+  const handleLeave = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Quitter ce groupe ?')) return;
+    const res = await fetch(`${API}/groups/${id}/leave`, { method: 'DELETE', headers });
+    if (res.ok) {
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+      if (activeGroup?.id === id) setActiveGroup(null);
+    }
+  };
+
+  /* ── Prof : gérer les membres ─────────────────────────────── */
+  const openMembers = async (e, group) => {
+    e.stopPropagation();
+    setMembersModal(group);
+    setLoadingMembers(true);
+    try {
+      const res = await fetch(`${API}/groups/${group.id}/members`, { headers });
+      const data = await res.json();
+      setMembers(Array.isArray(data) ? data : []);
+    } finally { setLoadingMembers(false); }
+  };
+
+  const handleExpel = async (userId) => {
+    if (!membersModal || !window.confirm('Expulser cet étudiant du groupe ?')) return;
+    const res = await fetch(`${API}/groups/${membersModal.id}/members/${userId}`, {
+      method: 'DELETE', headers,
+    });
+    if (res.ok) {
+      setMembers((prev) => prev.filter((m) => m.id !== userId));
+      setGroups((prev) => prev.map((g) =>
+        g.id === membersModal.id ? { ...g, member_count: Math.max(0, (g.member_count || 1) - 1) } : g));
+    }
+  };
+
   const groupMessages = activeGroup ? (messages[activeGroup.id] || []) : [];
 
   return (
@@ -245,9 +296,18 @@ const Groupes = () => {
               {g.filiere && <div className="group_filiere_tag">{g.filiere}</div>}
               <div className="group_members">{g.member_count ?? '—'} membres</div>
             </div>
-            {isProfessor && g.created_by === user?.id && (
-              <button className="group_delete_btn" onClick={(e) => handleDelete(e, g.id)} title="Supprimer">
-                <TrashIcon />
+            {isProfessor && g.created_by === user?.id ? (
+              <div className="group_item_actions">
+                <button className="group_action_btn" onClick={(e) => openMembers(e, g)} title="Gérer les membres">
+                  <UsersIcon />
+                </button>
+                <button className="group_action_btn danger" onClick={(e) => handleDelete(e, g.id)} title="Supprimer le groupe">
+                  <TrashIcon />
+                </button>
+              </div>
+            ) : !isProfessor && (
+              <button className="group_action_btn danger" onClick={(e) => handleLeave(e, g.id)} title="Quitter le groupe">
+                <LeaveIcon />
               </button>
             )}
           </div>
@@ -275,6 +335,24 @@ const Groupes = () => {
                 <UsersIcon />
                 <span className="online_toggle_count">{onlineByGroup[activeGroup.id]?.length || 0}</span>
               </button>
+              {!isProfessor && (
+                <button
+                  className="group_leave_header_btn"
+                  onClick={(e) => handleLeave(e, activeGroup.id)}
+                  title="Quitter le groupe"
+                >
+                  <LeaveIcon /> Quitter
+                </button>
+              )}
+              {isProfessor && activeGroup.created_by === user?.id && (
+                <button
+                  className="group_leave_header_btn manage"
+                  onClick={(e) => openMembers(e, activeGroup)}
+                  title="Gérer les membres"
+                >
+                  <UsersIcon /> Gérer
+                </button>
+              )}
             </div>
 
             <div className="chat_main_row">
@@ -463,6 +541,53 @@ const Groupes = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL GESTION DES MEMBRES ───────────────────────── */}
+      {membersModal && (
+        <div className="modal_overlay" onClick={() => setMembersModal(null)}>
+          <div className="modal_box modal_box_wide" onClick={(e) => e.stopPropagation()}>
+            <div className="modal_step_header">
+              <h3>Membres du groupe</h3>
+              <span className="modal_step_badge">{members.length}</span>
+            </div>
+            <div className="group_modal_meta">
+              <strong>{membersModal.name}</strong>{membersModal.filiere ? ` · ${membersModal.filiere}` : ''}
+            </div>
+
+            {loadingMembers ? (
+              <div className="students_empty">Chargement...</div>
+            ) : (
+              <div className="members_manage_list">
+                {members.map((m) => (
+                  <div className="member_manage_item" key={m.id}>
+                    <div className="member_manage_avatar" style={{ background: colorFor(m.username) }}>
+                      {getInitials(m.username)}
+                    </div>
+                    <div className="member_manage_info">
+                      <span className="member_manage_name">{m.username}</span>
+                      <span className="member_manage_role">
+                        {m.role === 'professor' ? 'Professeur (créateur)' : 'Étudiant'}
+                      </span>
+                    </div>
+                    {m.role !== 'professor' && (
+                      <button className="member_expel_btn" onClick={() => handleExpel(m.id)} title="Expulser">
+                        Expulser
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {members.length === 0 && (
+                  <div className="students_empty">Aucun membre.</div>
+                )}
+              </div>
+            )}
+
+            <div className="modal_actions">
+              <button className="modal_cancel" onClick={() => setMembersModal(null)}>Fermer</button>
+            </div>
           </div>
         </div>
       )}
