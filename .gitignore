@@ -15,3 +15,7 @@ Thumbs.db
 .idea/
 .claude/
 uploads/
+
+# Secrets Google (NE JAMAIS pousser)
+service-account.json
+*-service-account.json
