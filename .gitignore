@@ -13,7 +13,7 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
-.claude/
+
 uploads/
 
 # Secrets Google (NE JAMAIS pousser)
