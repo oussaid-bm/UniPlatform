@@ -261,7 +261,7 @@ const CourseRoom = () => {
             onClick={() => setMobileChat(v => !v)}
             title="Chat"
           >
-            💬
+           
           </button>
         </div>
       </nav>
@@ -318,13 +318,13 @@ const CourseRoom = () => {
               className={`right_tab ${rightTab === 'chat' ? 'active' : ''}`}
               onClick={() => setRightTab('chat')}
             >
-              💬 Chat
+              Chat
             </button>
             <button
               className={`right_tab ${rightTab === 'files' ? 'active' : ''}`}
               onClick={() => setRightTab('files')}
             >
-              📁 Fichiers
+              Fichiers
             </button>
           </div>
 
@@ -339,7 +339,7 @@ const CourseRoom = () => {
         <div className={`room_online_panel${showParticipants ? ' open' : ''}`}>
           <div className="room_online_title">
             <span className="online_dot" /> Participants — {participants.length}
-            <button className="room_online_close" onClick={() => setShowParticipants(false)}>✕</button>
+            <button className="room_online_close" onClick={() => setShowParticipants(false)}></button>
           </div>
           <div className="room_online_list">
             {participants.map((p) => (

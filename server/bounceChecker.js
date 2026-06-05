@@ -41,7 +41,7 @@ async function hasBounceForEmail(targetEmail) {
       } catch {}
     }
 
-    console.log(`🔍 Bounce check pour ${targetEmail} : ${uidSet.size} emails trouvés`);
+    console.log(`Bounce check pour ${targetEmail} : ${uidSet.size} emails trouvés`);
 
     for (const uid of uidSet) {
       try {
@@ -52,16 +52,16 @@ async function hasBounceForEmail(targetEmail) {
         });
         const raw = msg?.source?.toString() || '';
         if (raw.toLowerCase().includes(targetEmail.toLowerCase())) {
-          console.log(`✅ Bounce confirmé pour ${targetEmail}`);
+          console.log(`Bounce confirmé pour ${targetEmail}`);
           return true;
         }
       } catch {}
     }
 
-    console.log(`ℹ️ Pas de bounce trouvé pour ${targetEmail}`);
+    console.log(`Pas de bounce trouvé pour ${targetEmail}`);
     return false;
   } catch (err) {
-    console.error('❌ Erreur IMAP:', err.message);
+    console.error('Erreur IMAP:', err.message);
     return false;
   } finally {
     try { await client.logout(); } catch {}
@@ -81,7 +81,7 @@ function scheduleBounceCheck(email, userId) {
 
       if (user && !user.email_verified) {
         await db.run('DELETE FROM users WHERE id = ?', [userId]);
-        console.log(`🗑️ Compte supprimé (bounce) : ${email}`);
+        console.log(`Compte supprimé (bounce) : ${email}`);
       }
     } catch (err) {
       console.error('Erreur bounce check:', err.message);

@@ -133,8 +133,8 @@ const ChatGlobal = () => {
       <div className="chat_page_header">
         <div className="chat_header_icon"><ChatHeaderIcon /></div>
         <div className="chat_header_info">
-          <h2>Chat Global</h2>
-          <p><span className="online_dot" /> {online.length} en ligne</p>
+          <h2>Chat {user?.filiere || 'Global'}</h2>
+          <p><span className="online_dot" /> {online.length} en ligne{user?.filiere ? ` · ${user.filiere}` : ''}</p>
         </div>
         <button
           className={`online_toggle_btn${showOnline ? ' active' : ''}`}

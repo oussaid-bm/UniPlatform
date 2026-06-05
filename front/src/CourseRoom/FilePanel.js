@@ -106,7 +106,7 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erreur upload.');
       setFiles(prev => [data, ...prev]);
-      setSuccess(`✅ "${file.name}" déposé avec succès.`);
+      setSuccess(`"${file.name}" déposé avec succès.`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       setError(err.message);

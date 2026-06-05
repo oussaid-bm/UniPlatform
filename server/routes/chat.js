@@ -35,12 +35,13 @@ async function storeFile(file) {
   return localName;
 }
 
-/* ── GET /api/chat/global — historique chat global ─────────────── */
+/* ── GET /api/chat/global — historique chat global (filière de l'utilisateur) ── */
 router.get('/global', verifyToken, async (req, res) => {
   try {
     const db   = await getDb();
     const rows = await db.all(
-      `SELECT * FROM global_messages ORDER BY created_at ASC LIMIT 100`
+      `SELECT * FROM global_messages WHERE filiere = ? ORDER BY created_at ASC LIMIT 100`,
+      [req.user.filiere || '']
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -53,9 +54,9 @@ router.post('/global/file', verifyToken, upload.single('file'), async (req, res)
     const storedName = await storeFile(req.file); // Drive ou disque
     const db     = await getDb();
     const result = await db.run(
-      `INSERT INTO global_messages (sender_id, sender_name, content, file_name, file_original, file_size)
-       VALUES (?, ?, '', ?, ?, ?)`,
-      [req.user.id, req.user.username, storedName, req.file.originalname, req.file.size]
+      `INSERT INTO global_messages (sender_id, sender_name, filiere, content, file_name, file_original, file_size)
+       VALUES (?, ?, ?, '', ?, ?, ?)`,
+      [req.user.id, req.user.username, req.user.filiere || '', storedName, req.file.originalname, req.file.size]
     );
     const msg = await db.get('SELECT * FROM global_messages WHERE id = ?', [result.lastID]);
     res.json(msg);

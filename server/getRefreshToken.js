@@ -14,7 +14,7 @@ const CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
-  console.error('❌ Mets d\'abord GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans .env');
+  console.error('Mets d\'abord GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans .env');
   process.exit(1);
 }
 
@@ -35,9 +35,9 @@ rl.question('3) Colle le code ici puis Entrée : ', async (code) => {
   rl.close();
   try {
     const { tokens } = await oauth2.getToken(code.trim());
-    console.log('\n✅ SUCCÈS ! Copie cette ligne dans ton fichier .env :\n');
+    console.log('\nSUCCÈS ! Copie cette ligne dans ton fichier .env :\n');
     console.log('GOOGLE_REFRESH_TOKEN=' + tokens.refresh_token + '\n');
   } catch (err) {
-    console.error('\n❌ Erreur :', err.message);
+    console.error('\nErreur :', err.message);
   }
 });

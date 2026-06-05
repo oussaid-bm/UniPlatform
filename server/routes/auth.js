@@ -93,10 +93,10 @@ router.get('/verify-email', async (req, res) => {
     );
 
     if (!user)
-      return res.status(400).send(htmlPage('❌ Lien invalide', 'Ce lien de vérification est invalide ou a déjà été utilisé.', false));
+      return res.status(400).send(htmlPage('Lien invalide', 'Ce lien de vérification est invalide ou a déjà été utilisé.', false));
 
     if (new Date(user.token_expires_at) < new Date())
-      return res.status(400).send(htmlPage('⏱️ Lien expiré', 'Ce lien a expiré. Connectez-vous et demandez un nouveau lien.', false));
+      return res.status(400).send(htmlPage('Lien expiré', 'Ce lien a expiré. Connectez-vous et demandez un nouveau lien.', false));
 
     await db.run(
       'UPDATE users SET email_verified = 1, verification_token = NULL, token_expires_at = NULL WHERE id = ?',

@@ -52,8 +52,10 @@ const { verifyToken } = require('./middleware/auth');
 app.get('/api/global-chat/history', verifyToken, async (req, res) => {
   try {
     const db = await getDb();
+    // On ne renvoie que les messages de la filière de l'utilisateur.
     const messages = await db.all(
-      'SELECT * FROM global_messages ORDER BY created_at ASC LIMIT 100'
+      'SELECT * FROM global_messages WHERE filiere = ? ORDER BY created_at ASC LIMIT 100',
+      [req.user.filiere || '']
     );
     res.json(messages);
   } catch (err) {
@@ -101,8 +103,13 @@ function getOnlineInRoom(room) {
   }
   return users;
 }
-const emitGlobalOnline = () =>
-  io.to('global-chat').emit('global-online', getOnlineInRoom('global-chat'));
+// Le chat global est SÉPARÉ PAR FILIÈRE : chaque spécialité a sa propre "room"
+// nommée "global-<filiere>". Les étudiants ne voient que le chat de leur filière.
+const globalRoom = (filiere) => `global-${filiere || ''}`;
+const emitGlobalOnline = (filiere) => {
+  const room = globalRoom(filiere);
+  io.to(room).emit('global-online', getOnlineInRoom(room));
+};
 const emitGroupOnline = (groupId) =>
   io.to(`group-${groupId}`).emit('group-online', { groupId, users: getOnlineInRoom(`group-${groupId}`) });
 
@@ -120,22 +127,28 @@ io.on('connection', (socket) => {
   socket.on('authenticate', (token) => {
     try {
       const user = jwt.verify(token, JWT_SECRET);
-      connectedUsers[socket.id] = { userId: user.id, username: user.username, role: user.role };
+      // On mémorise aussi la filière → sert à router le chat global par spécialité.
+      connectedUsers[socket.id] = { userId: user.id, username: user.username, role: user.role, filiere: user.filiere || '' };
       socket.emit('authenticated', { success: true });
     } catch {
       socket.emit('authenticated', { success: false, error: 'Token invalide.' });
     }
   });
 
-  // ─── CHAT GLOBAL ───────────────────────────────────────────────────
+  // ─── CHAT GLOBAL (séparé par filière) ──────────────────────────────
+  // L'étudiant rejoint automatiquement la room de SA filière (lue depuis son compte).
   socket.on('join-global-chat', () => {
-    socket.join('global-chat');
-    emitGlobalOnline();
+    const user = connectedUsers[socket.id];
+    if (!user) return;
+    socket.join(globalRoom(user.filiere));
+    emitGlobalOnline(user.filiere);
   });
 
   socket.on('leave-global-chat', () => {
-    socket.leave('global-chat');
-    emitGlobalOnline();
+    const user = connectedUsers[socket.id];
+    if (!user) return;
+    socket.leave(globalRoom(user.filiere));
+    emitGlobalOnline(user.filiere);
   });
 
   socket.on('send-global-message', async ({ content }) => {
@@ -144,17 +157,19 @@ io.on('connection', (socket) => {
     try {
       const db = await getDb();
       const result = await db.run(
-        'INSERT INTO global_messages (sender_id, sender_name, content) VALUES (?, ?, ?)',
-        [user.userId, user.username, content.trim()]
+        'INSERT INTO global_messages (sender_id, sender_name, filiere, content) VALUES (?, ?, ?, ?)',
+        [user.userId, user.username, user.filiere || '', content.trim()]
       );
       const message = {
         id: result.lastID,
         sender_id: user.userId,
         sender_name: user.username,
+        filiere: user.filiere || '',
         content: content.trim(),
         created_at: new Date().toISOString(),
       };
-      io.to('global-chat').emit('global-message', message);
+      // On diffuse UNIQUEMENT aux étudiants de la même filière.
+      io.to(globalRoom(user.filiere)).emit('global-message', message);
     } catch (err) {
       console.error('Erreur sauvegarde message global:', err.message);
     }
@@ -200,7 +215,9 @@ io.on('connection', (socket) => {
     io.to(`group-${groupId}`).emit('group-message', { ...message, groupId, group_id: groupId });
   });
   socket.on('broadcast-global-file', ({ message }) => {
-    io.to('global-chat').emit('global-message', message);
+    const user = connectedUsers[socket.id];
+    // On diffuse le fichier uniquement à la filière de l'expéditeur.
+    io.to(globalRoom(user?.filiere)).emit('global-message', message);
   });
 
   // ─── CHAT TEXTE (cours) ────────────────────────────────────────────
@@ -272,7 +289,7 @@ io.on('connection', (socket) => {
       // Filière du cours — si vide ("Toutes les filières") → pas d'email envoyé
       const filiere = course.filiere ? course.filiere.trim() : null;
       if (!filiere) {
-        console.log(`📧 Cours "${course.title}" sans filière → aucun email envoyé.`);
+        console.log(`Cours "${course.title}" sans filière → aucun email envoyé.`);
         return;
       }
 
@@ -282,15 +299,15 @@ io.on('connection', (socket) => {
       );
 
       if (students.length === 0) {
-        console.log(`📧 Aucun étudiant vérifié pour la filière "${filiere}"`);
+        console.log(`Aucun étudiant vérifié pour la filière "${filiere}"`);
         return;
       }
 
-      console.log(`📧 Envoi de ${students.length} email(s) pour "${course.title}" → ${filiere}`);
+      console.log(`Envoi de ${students.length} email(s) pour "${course.title}" → ${filiere}`);
       students.forEach(({ username, email }) => {
         sendLiveSessionEmail(email, username, course.title, user.username, courseId)
-          .then(() => console.log(`  ✅ Email → ${email}`))
-          .catch((err) => console.error(`  ❌ Échec ${email}:`, err.message));
+          .then(() => console.log(`  Email → ${email}`))
+          .catch((err) => console.error(`  Échec ${email}:`, err.message));
       });
 
     } catch (err) {
@@ -494,7 +511,8 @@ io.on('connection', (socket) => {
     const rooms = [...socket.rooms];
     setTimeout(() => {
       rooms.forEach((room) => {
-        if (room === 'global-chat') emitGlobalOnline();
+        // room "global-<filiere>" → met à jour les en ligne de cette filière
+        if (room.startsWith('global-')) emitGlobalOnline(room.slice(7));
         else if (room.startsWith('group-')) emitGroupOnline(room.slice(6));
       });
     }, 60);
@@ -533,27 +551,27 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3003;
 
 function startServer() {
-  server.listen(PORT, () => console.log(`✅ Serveur démarré sur http://localhost:${PORT}`));
+  server.listen(PORT, () => console.log(`Serveur démarré sur http://localhost:${PORT}`));
 }
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.log(`⚠️  Port ${PORT} déjà utilisé — libération en cours...`);
+    console.log(` Port ${PORT} déjà utilisé — libération en cours...`);
     const { execSync } = require('child_process');
     try {
       const output = execSync(`netstat -ano | findstr :${PORT} | findstr LISTENING`).toString();
       const pid = output.trim().split(/\s+/).pop();
       if (pid && pid !== '0') {
         execSync(`taskkill /F /PID ${pid}`);
-        console.log(`🔪 Ancien processus (PID ${pid}) tué. Redémarrage...`);
+        console.log(`Ancien processus (PID ${pid}) tué. Redémarrage...`);
         // Crée un nouveau serveur car l'ancien est en état d'erreur
         const newServer = http.createServer(app);
-        newServer.listen(PORT, () => console.log(`✅ Serveur démarré sur http://localhost:${PORT}`));
+        newServer.listen(PORT, () => console.log(`Serveur démarré sur http://localhost:${PORT}`));
         // Transfère les listeners socket.io sur le nouveau serveur
         io.attach(newServer);
       }
     } catch (e) {
-      console.error('❌ Impossible de libérer le port:', e.message);
+      console.error('Impossible de libérer le port:', e.message);
       process.exit(1);
     }
   } else {
@@ -570,7 +588,7 @@ setInterval(async () => {
        AND created_at < (NOW() - INTERVAL 24 HOUR)`
     );
     if (result.changes > 0)
-      console.log(`🗑️ ${result.changes} compte(s) non vérifié(s) supprimé(s)`);
+      console.log(`${result.changes} compte(s) non vérifié(s) supprimé(s)`);
   } catch (err) {
     console.error('Erreur nettoyage comptes:', err.message);
   }

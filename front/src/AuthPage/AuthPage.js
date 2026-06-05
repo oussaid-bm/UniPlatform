@@ -84,7 +84,7 @@ const AuthPage = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('verified') === '1') {
-      setSuccessMsg('✅ Email vérifié ! Vous pouvez maintenant vous connecter.');
+      setSuccessMsg('Email vérifié ! Vous pouvez maintenant vous connecter.');
       window.history.replaceState({}, '', '/');
     }
     const rt = params.get('reset_token');
@@ -140,7 +140,7 @@ const AuthPage = () => {
 
       if (isRegister) {
         setRegisteredEmail(form.email);
-        setSuccessMsg(`📧 Compte créé ! Un email de vérification a été envoyé à ${form.email}. Vérifiez votre boîte mail et cliquez sur le lien pour activer votre compte. ⚠️ Si vous ne recevez rien, votre adresse email est peut-être invalide — le compte sera supprimé automatiquement après 24h.`);
+        setSuccessMsg(`Compte créé ! Un email de vérification a été envoyé à ${form.email}. Vérifiez votre boîte mail et cliquez sur le lien pour activer votre compte. Si vous ne recevez rien, votre adresse email est peut-être invalide — le compte sera supprimé automatiquement après 24h.`);
         setForm({ username: '', email: '', password: '', filiere: '' });
         return;
       }
@@ -209,9 +209,9 @@ const AuthPage = () => {
       });
       const data = await res.json();
       if (!res.ok) { setResetErr(data.error || 'Erreur.'); return; }
-      setResetMsg('✅ Mot de passe réinitialisé ! Vous pouvez maintenant vous connecter.');
+      setResetMsg('Mot de passe réinitialisé ! Vous pouvez maintenant vous connecter.');
       setResetPwd(''); setResetPwd2('');
-      setTimeout(() => { setView('login'); setResetMsg(''); setSuccessMsg('✅ Mot de passe changé ! Connectez-vous.'); }, 2000);
+      setTimeout(() => { setView('login'); setResetMsg(''); setSuccessMsg('Mot de passe changé ! Connectez-vous.'); }, 2000);
     } catch {
       setResetErr('Impossible de joindre le serveur.');
     } finally {
@@ -341,7 +341,7 @@ const AuthPage = () => {
                   <div className="auth_resend">
                     Vous n'avez pas reçu l'email ?{' '}
                     <button onClick={handleResend} disabled={resendStatus === 'sending' || resendStatus === 'sent'}>
-                      {resendStatus === 'sending' ? 'Envoi...' : resendStatus === 'sent' ? '✅ Renvoyé !' : 'Renvoyer'}
+                      {resendStatus === 'sending' ? 'Envoi...' : resendStatus === 'sent' ? 'Renvoyé !' : 'Renvoyer'}
                     </button>
                     {resendStatus === 'error' && <span style={{ color: '#DC2626' }}> Échec.</span>}
                   </div>
@@ -357,7 +357,7 @@ const AuthPage = () => {
                   <div className="auth_resend">
                     Pas reçu ?{' '}
                     <button onClick={handleResend} disabled={resendStatus === 'sending' || resendStatus === 'sent'}>
-                      {resendStatus === 'sending' ? 'Envoi...' : resendStatus === 'sent' ? '✅ Envoyé !' : "Renvoyer l'email"}
+                      {resendStatus === 'sending' ? 'Envoi...' : resendStatus === 'sent' ? 'Envoyé !' : "Renvoyer l'email"}
                     </button>
                     {resendStatus === 'error' && <span style={{ color: '#DC2626' }}> Échec.</span>}
                   </div>

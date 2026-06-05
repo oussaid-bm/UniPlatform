@@ -81,7 +81,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erreur upload.');
       setSubmissions([data]);
-      setSuccess('✅ Travail soumis avec succès !');
+      setSuccess('Travail soumis avec succès !');
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       setError(err.message);
@@ -151,7 +151,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
   return (
     <div className="submission_panel">
       <div className="submission_panel_title">
-        {isProfessor ? `📥 Travaux rendus (${submissions.length})` : '📤 Remettre mon travail'}
+        {isProfessor ? `Travaux rendus (${submissions.length})` : 'Remettre mon travail'}
       </div>
 
       {error   && <div className="file_msg error">{error}</div>}
@@ -170,7 +170,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
                   <div className="sub_grade_display">
                     <span className="sub_grade_value">{mySubmission.grade}/20</span>
                     {mySubmission.grade_comment && (
-                      <span className="sub_grade_comment">💬 {mySubmission.grade_comment}</span>
+                      <span className="sub_grade_comment">{mySubmission.grade_comment}</span>
                     )}
                   </div>
                 )}
@@ -217,14 +217,14 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
                   <div className="file_icon"><PdfIcon /></div>
                   <div className="file_info">
                     <span className="file_name">{sub.original_name}</span>
-                    <span className="file_meta">👤 {sub.student_name} · {formatSize(sub.size)} · {formatDate(sub.created_at)}</span>
+                    <span className="file_meta">{sub.student_name} · {formatSize(sub.size)} · {formatDate(sub.created_at)}</span>
                   </div>
                   <div className="file_actions">
                     {sub.grade !== null && sub.grade !== undefined
                       ? <span className="sub_grade_badge">{sub.grade}/20</span>
                       : null
                     }
-                    <button className="file_btn grade" onClick={() => gradingId === sub.id ? setGradingId(null) : openGrading(sub)} title="Noter">✏️</button>
+                    <button className="file_btn grade" onClick={() => gradingId === sub.id ? setGradingId(null) : openGrading(sub)} title="Noter"></button>
                     <button className="file_btn download" onClick={() => handleDownload(sub)} title="Télécharger"><DownloadIcon /></button>
                     <button className="file_btn delete"   onClick={() => handleDelete(sub)}   title="Supprimer"><TrashIcon /></button>
                   </div>
@@ -251,7 +251,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
                     <div className="sub_grade_actions">
                       <button className="sub_grade_cancel" onClick={() => setGradingId(null)}>Annuler</button>
                       <button className="sub_grade_save" onClick={() => submitGrade(sub.id)} disabled={gradingBusy}>
-                        {gradingBusy ? 'Enregistrement...' : '✓ Enregistrer'}
+                        {gradingBusy ? 'Enregistrement...' : 'Enregistrer'}
                       </button>
                     </div>
                   </div>

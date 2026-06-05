@@ -66,11 +66,11 @@ router.post('/', verifyToken, async (req, res) => {
       );
       if (students.length === 0) return;
 
-      console.log(`📧 Annonce "${title}" → ${students.length} email(s) (${filiereTarget})`);
+      console.log(`Annonce "${title}" → ${students.length} email(s) (${filiereTarget})`);
       students.forEach(({ username, email }) => {
         sendAnnouncementEmail(email, username, title, content, req.user.username)
-          .then(() => console.log(`  ✅ Email → ${email}`))
-          .catch((err) => console.error(`  ❌ Échec ${email}:`, err.message));
+          .then(() => console.log(`  Email → ${email}`))
+          .catch((err) => console.error(`  Échec ${email}:`, err.message));
       });
     } catch (err) {
       console.error('Erreur envoi emails annonce:', err.message);

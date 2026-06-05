@@ -191,6 +191,7 @@ const getDb = async () => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       sender_id INT NOT NULL,
       sender_name VARCHAR(255) NOT NULL,
+      filiere VARCHAR(255) DEFAULT '',
       content TEXT,
       file_name VARCHAR(255) DEFAULT NULL,
       file_original VARCHAR(255) DEFAULT NULL,
@@ -215,7 +216,13 @@ const getDb = async () => {
     await pool.query(sql);
   }
 
-  console.log(`✅ Base MySQL "${DB_NAME}" prête (${tables.length} tables).`);
+  // Migration : ajoute la colonne filiere à global_messages si la table existait déjà.
+  // (le try/catch ignore l'erreur "Duplicate column" si la colonne est déjà présente)
+  try {
+    await pool.query("ALTER TABLE global_messages ADD COLUMN filiere VARCHAR(255) DEFAULT ''");
+  } catch (e) { /* colonne déjà présente → on ignore */ }
+
+  console.log(`Base MySQL "${DB_NAME}" prête (${tables.length} tables).`);
   return dbWrapper;
 };
 

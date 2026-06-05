@@ -25,42 +25,79 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  IDENTITÉ VISUELLE (mêmes couleurs que le site)
+//  navy #1B2B4B · or #C8963E · crème #F2EDE4 · titres serif Georgia
+// ─────────────────────────────────────────────────────────────────────────────
+const NAVY  = '#1B2B4B';
+const GOLD  = '#C8963E';
+const CREAM = '#F2EDE4';
+const SERIF = "Georgia,'Times New Roman',serif";
+
+// Bouton d'action réutilisable (couleur navy par défaut, ou or).
+const button = (href, label, color = NAVY) => `
+  <div style="text-align:center;margin:30px 0 8px;">
+    <a href="${href}" style="display:inline-block;padding:14px 38px;background:${color};color:#ffffff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
+      ${label}
+    </a>
+  </div>`;
+
+// Encart d'information (carte beige avec liseré or).
+const infoCard = (inner) => `
+  <div style="background:${CREAM};border-radius:10px;padding:18px 20px;margin:24px 0;border-left:4px solid ${GOLD};">
+    ${inner}
+  </div>`;
+
+// Gabarit COMMUN à tous les emails : en-tête navy avec logo + nom, corps, pied de page.
+// `body`   : le contenu HTML propre à chaque email
+// `footer` : la petite phrase grise du bas
+function layout(title, subtitle, body, footer) {
+  return `
+  <div style="background:${CREAM};padding:28px 16px;font-family:'Segoe UI',Arial,sans-serif;">
+    <div style="max-width:540px;margin:auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 28px rgba(27,43,75,0.10);">
+
+      <!-- En-tête navy avec logo et nom de la plateforme -->
+      <div style="background:${NAVY};padding:26px 28px;text-align:center;">
+        <div style="display:inline-block;width:46px;height:46px;background:${GOLD};border-radius:12px;line-height:46px;font-size:24px;"></div>
+        <div style="color:#ffffff;font-family:${SERIF};font-size:24px;font-weight:800;margin-top:10px;letter-spacing:-0.3px;">UniPlatform</div>
+        <div style="color:${GOLD};font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Plateforme universitaire</div>
+      </div>
+
+      <!-- Corps -->
+      <div style="padding:30px 30px 26px;">
+        <h2 style="color:${NAVY};font-family:${SERIF};font-size:21px;font-weight:700;margin:0 0 4px;">${title}</h2>
+        ${subtitle ? `<p style="color:#7A7060;font-size:14px;margin:0 0 20px;">${subtitle}</p>` : ''}
+        ${body}
+      </div>
+
+      <!-- Pied de page -->
+      <div style="background:${CREAM};padding:16px 28px;border-top:1px solid #E5E0D8;">
+        <p style="color:#A89880;font-size:11.5px;text-align:center;line-height:1.6;margin:0;">${footer || 'UniPlatform — Plateforme universitaire en ligne'}</p>
+      </div>
+
+    </div>
+  </div>`;
+}
+
 async function sendVerificationEmail(email, username, token) {
   const link = `${APP_URL}/api/auth/verify-email?token=${token}`;
 
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: '✅ Vérifiez votre adresse email – UniPlatform',
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#4F46E5;border-radius:14px;font-size:26px;">🎓</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Bienvenue sur UniPlatform !</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong>, votre compte est presque prêt.</p>
-        </div>
-
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Cliquez sur le bouton ci-dessous pour <strong>vérifier votre adresse email</strong> et activer votre compte UniPlatform.
-        </p>
-
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${link}"
-             style="display:inline-block;padding:14px 36px;background:#4F46E5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            ✅ Vérifier mon email
-          </a>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;line-height:1.6;margin:0;">
-          Ce lien expire dans 24 heures.<br/>
-          Si vous n'avez pas créé de compte sur UniPlatform, ignorez cet email.
-        </p>
-      </div>
-    `,
+    subject: 'Vérifiez votre adresse email – UniPlatform',
+    html: layout(
+      'Bienvenue sur UniPlatform !',
+      `Bonjour <strong>${username}</strong>, votre compte est presque prêt.`,
+      `<p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Cliquez sur le bouton ci-dessous pour <strong>vérifier votre adresse email</strong> et activer votre compte.
+      </p>
+      ${button(link, 'Vérifier mon email')}`,
+      'Ce lien expire dans 24 heures. Si vous n\'avez pas créé de compte, ignorez cet email.'
+    ),
   });
 
-  console.log(`📧 Email envoyé à ${email}`);
+  console.log(`Email envoyé à ${email}`);
 }
 
 /* ── Notification cours en direct ───────────────────────────────────── */
@@ -70,38 +107,21 @@ async function sendLiveSessionEmail(email, username, courseName, professorName, 
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `🔴 Cours en direct : ${courseName}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#EF4444;border-radius:14px;font-size:26px;">🔴</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Cours en direct démarré !</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong></p>
-        </div>
-
-        <div style="background:#F8FAFF;border-radius:10px;padding:18px 20px;margin-bottom:24px;">
-          <p style="margin:0 0 8px;font-size:13px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Cours</p>
-          <p style="margin:0;font-size:17px;font-weight:700;color:#111827;">${courseName}</p>
-          <p style="margin:6px 0 0;font-size:13px;color:#6B7280;">👨‍🏫 ${professorName} • En ce moment</p>
-        </div>
-
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Votre professeur vient de démarrer une session vidéo en direct. Rejoignez maintenant pour ne rien manquer !
-        </p>
-
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${link}"
-             style="display:inline-block;padding:14px 36px;background:#4F46E5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            🚀 Rejoindre le cours
-          </a>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
-          Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.
-        </p>
-      </div>
-    `,
+    subject: `Cours en direct : ${courseName}`,
+    html: layout(
+      'Cours en direct démarré',
+      `Bonjour <strong>${username}</strong>`,
+      `${infoCard(`
+        <p style="margin:0 0 4px;font-size:11px;color:${GOLD};font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Cours</p>
+        <p style="margin:0;font-size:17px;font-weight:700;color:${NAVY};">${courseName}</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#7A7060;">‍${professorName} • En ce moment</p>
+      `)}
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Votre professeur vient de démarrer une session vidéo en direct. Rejoignez maintenant pour ne rien manquer !
+      </p>
+      ${button(link, 'Rejoindre le cours')}`,
+      'Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.'
+    ),
   });
 }
 
@@ -112,35 +132,18 @@ async function sendAnnouncementEmail(email, username, title, content, authorName
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `📢 Nouvelle annonce : ${title}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#F59E0B;border-radius:14px;font-size:26px;">📢</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Nouvelle annonce</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong></p>
-        </div>
-
-        <div style="background:#FFFBEB;border-radius:10px;padding:18px 20px;margin-bottom:24px;border-left:4px solid #F59E0B;">
-          <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#111827;">${title}</p>
-          <p style="margin:0;font-size:13px;color:#6B7280;">👨‍🏫 ${authorName}</p>
-        </div>
-
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">${preview}</p>
-
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${APP_URL}/app/annonces"
-             style="display:inline-block;padding:14px 36px;background:#4F46E5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            Voir l'annonce
-          </a>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
-          Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.
-        </p>
-      </div>
-    `,
+    subject: `Nouvelle annonce : ${title}`,
+    html: layout(
+      'Nouvelle annonce',
+      `Bonjour <strong>${username}</strong>`,
+      `${infoCard(`
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${title}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">‍${authorName}</p>
+      `)}
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">${preview}</p>
+      ${button(`${APP_URL}/app/annonces`, "Voir l'annonce")}`,
+      'Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.'
+    ),
   });
 }
 
@@ -151,39 +154,22 @@ async function sendFileUploadEmail(email, username, fileName, courseName, author
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `📎 Nouveau fichier dans "${courseName}"`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#EF4444;border-radius:14px;font-size:26px;">📎</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Nouveau fichier disponible</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong></p>
-        </div>
-
-        <div style="background:#FEF2F2;border-radius:10px;padding:18px 20px;margin-bottom:24px;border-left:4px solid #EF4444;">
-          <p style="margin:0 0 4px;font-size:13px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Cours</p>
-          <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#111827;">${courseName}</p>
-          <p style="margin:0;font-size:14px;color:#374151;">📄 ${fileName}</p>
-          <p style="margin:4px 0 0;font-size:13px;color:#6B7280;">👨‍🏫 Déposé par ${authorName}</p>
-        </div>
-
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Un nouveau fichier PDF a été déposé dans ce cours. Consultez-le dès maintenant depuis l'espace Cours & Devoirs.
-        </p>
-
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${link}"
-             style="display:inline-block;padding:14px 36px;background:#4F46E5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            Voir le cours
-          </a>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
-          Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.
-        </p>
-      </div>
-    `,
+    subject: `Nouveau fichier dans "${courseName}"`,
+    html: layout(
+      'Nouveau fichier disponible',
+      `Bonjour <strong>${username}</strong>`,
+      `${infoCard(`
+        <p style="margin:0 0 4px;font-size:11px;color:${GOLD};font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Cours</p>
+        <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:${NAVY};">${courseName}</p>
+        <p style="margin:0;font-size:14px;color:#3D3628;">${fileName}</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#7A7060;">‍Déposé par ${authorName}</p>
+      `)}
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Un nouveau fichier PDF a été déposé dans ce cours. Consultez-le dès maintenant.
+      </p>
+      ${button(link, 'Voir le cours')}`,
+      'Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.'
+    ),
   });
 }
 
@@ -192,32 +178,20 @@ async function sendNewDevoirEmail(email, username, devoirTitle, professorName) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `📝 Nouveau devoir : ${devoirTitle}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#1B2B4B;border-radius:14px;font-size:26px;">📝</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Nouveau devoir publié</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong></p>
-        </div>
-        <div style="background:#FBF0E0;border-radius:10px;padding:18px 20px;margin-bottom:24px;border-left:4px solid #C8963E;">
-          <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#111827;">${devoirTitle}</p>
-          <p style="margin:0;font-size:13px;color:#6B7280;">👨‍🏫 ${professorName}</p>
-        </div>
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Un nouveau devoir a été publié. Connectez-vous à UniPlatform pour consulter les consignes et remettre votre travail.
-        </p>
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${APP_URL}/app/cours" style="display:inline-block;padding:14px 36px;background:#1B2B4B;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            Voir le devoir
-          </a>
-        </div>
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
-          Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.
-        </p>
-      </div>
-    `,
+    subject: `Nouveau devoir : ${devoirTitle}`,
+    html: layout(
+      'Nouveau devoir publié',
+      `Bonjour <strong>${username}</strong>`,
+      `${infoCard(`
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${devoirTitle}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">‍${professorName}</p>
+      `)}
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Un nouveau devoir a été publié. Connectez-vous pour consulter les consignes et remettre votre travail.
+      </p>
+      ${button(`${APP_URL}/app/cours`, 'Voir le devoir')}`,
+      'Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.'
+    ),
   });
 }
 
@@ -226,32 +200,20 @@ async function sendSubmissionEmail(email, professorName, studentName, devoirTitl
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `✅ Travail rendu : ${devoirTitle}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#059669;border-radius:14px;font-size:26px;">✅</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Travail rendu</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${professorName}</strong></p>
-        </div>
-        <div style="background:#F0FDF4;border-radius:10px;padding:18px 20px;margin-bottom:24px;border-left:4px solid #10B981;">
-          <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#111827;">${devoirTitle}</p>
-          <p style="margin:0;font-size:13px;color:#6B7280;">👤 Soumis par <strong>${studentName}</strong></p>
-        </div>
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Un étudiant vient de remettre son travail. Connectez-vous pour le consulter et le télécharger.
-        </p>
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${APP_URL}/app/cours" style="display:inline-block;padding:14px 36px;background:#059669;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            Voir les rendus
-          </a>
-        </div>
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
-          Vous recevez cet email car vous êtes professeur sur UniPlatform.
-        </p>
-      </div>
-    `,
+    subject: `Travail rendu : ${devoirTitle}`,
+    html: layout(
+      'Travail rendu',
+      `Bonjour <strong>${professorName}</strong>`,
+      `${infoCard(`
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${devoirTitle}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">Soumis par <strong>${studentName}</strong></p>
+      `)}
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Un étudiant vient de remettre son travail. Connectez-vous pour le consulter et le télécharger.
+      </p>
+      ${button(`${APP_URL}/app/cours`, 'Voir les rendus')}`,
+      'Vous recevez cet email car vous êtes professeur sur UniPlatform.'
+    ),
   });
 }
 
@@ -261,29 +223,22 @@ async function sendGradeEmail(email, studentName, devoirTitle, grade, comment) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `🎓 Votre note pour "${devoirTitle}"`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#1B2B4B;border-radius:14px;font-size:26px;">🎓</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Votre travail a été noté</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${studentName}</strong></p>
-        </div>
-        <div style="background:#F8FAFF;border-radius:10px;padding:18px 20px;margin-bottom:24px;border-left:4px solid #1B2B4B;">
-          <p style="margin:0 0 6px;font-size:14px;color:#6B7280;">Devoir</p>
-          <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#111827;">${devoirTitle}</p>
-          <p style="margin:0;font-size:28px;font-weight:800;color:#1B2B4B;">${gradeDisplay}</p>
-        </div>
-        ${comment ? `<div style="background:#FFFBEB;border-radius:10px;padding:14px 18px;margin-bottom:24px;border-left:4px solid #C8963E;"><p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em;">Commentaire</p><p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">${comment}</p></div>` : ''}
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${APP_URL}/app/cours" style="display:inline-block;padding:14px 36px;background:#1B2B4B;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            Voir mon devoir
-          </a>
-        </div>
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">UniPlatform</p>
+    subject: `Votre note pour "${devoirTitle}"`,
+    html: layout(
+      'Votre travail a été noté',
+      `Bonjour <strong>${studentName}</strong>`,
+      `<div style="background:${NAVY};border-radius:12px;padding:22px;margin:24px 0;text-align:center;">
+        <p style="margin:0 0 4px;font-size:12px;color:${GOLD};text-transform:uppercase;letter-spacing:0.06em;">Devoir</p>
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#ffffff;">${devoirTitle}</p>
+        <p style="margin:0;font-size:36px;font-weight:800;color:#ffffff;font-family:${SERIF};">${gradeDisplay}</p>
       </div>
-    `,
+      ${comment ? infoCard(`
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${GOLD};text-transform:uppercase;letter-spacing:0.06em;">Commentaire du professeur</p>
+        <p style="margin:0;font-size:14px;color:#3D3628;line-height:1.6;">${comment}</p>
+      `) : ''}
+      ${button(`${APP_URL}/app/cours`, 'Voir mon devoir')}`,
+      'UniPlatform — Plateforme universitaire en ligne'
+    ),
   });
 }
 
@@ -294,29 +249,16 @@ async function sendPasswordResetEmail(email, username, token) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: '🔑 Réinitialisation de votre mot de passe – UniPlatform',
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #E5E7EB;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#1B2B4B;border-radius:14px;font-size:26px;">🔑</div>
-          <h2 style="color:#111827;margin:14px 0 4px;font-size:22px;font-weight:700;">Réinitialisation du mot de passe</h2>
-          <p style="color:#6B7280;margin:0;font-size:14px;">Bonjour <strong>${username}</strong></p>
-        </div>
-        <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:24px;">
-          Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.
-        </p>
-        <div style="text-align:center;margin:28px 0;">
-          <a href="${link}" style="display:inline-block;padding:14px 36px;background:#1B2B4B;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-            🔑 Réinitialiser mon mot de passe
-          </a>
-        </div>
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:24px 0;" />
-        <p style="color:#9CA3AF;font-size:12px;text-align:center;line-height:1.6;margin:0;">
-          Ce lien expire dans <strong>1 heure</strong>.<br/>
-          Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
-        </p>
-      </div>
-    `,
+    subject: 'Réinitialisation de votre mot de passe – UniPlatform',
+    html: layout(
+      'Réinitialisation du mot de passe',
+      `Bonjour <strong>${username}</strong>`,
+      `<p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
+        Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.
+      </p>
+      ${button(link, 'Réinitialiser mon mot de passe')}`,
+      'Ce lien expire dans 1 heure. Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.'
+    ),
   });
 }
 

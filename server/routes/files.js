@@ -22,7 +22,7 @@ const uploadsDir = process.env.UPLOADS_PATH
 try {
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 } catch (err) {
-  console.error(`❌ Impossible de créer le dossier uploads (${uploadsDir}):`, err.message);
+  console.error(`Impossible de créer le dossier uploads (${uploadsDir}):`, err.message);
 }
 
 // ── multer en mémoire : le fichier arrive dans req.file.buffer ───────────────
@@ -86,11 +86,11 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
     );
     if (students.length === 0) return;
 
-    console.log(`📧 Fichier "${req.file.originalname}" → ${students.length} email(s) (${filiereTarget})`);
+    console.log(`Fichier "${req.file.originalname}" → ${students.length} email(s) (${filiereTarget})`);
     students.forEach(({ username, email }) => {
       sendFileUploadEmail(email, username, req.file.originalname, course.title, req.user.username, course.id)
-        .then(() => console.log(`  ✅ Email → ${email}`))
-        .catch((err) => console.error(`  ❌ Échec ${email}:`, err.message));
+        .then(() => console.log(`  Email → ${email}`))
+        .catch((err) => console.error(`  Échec ${email}:`, err.message));
     });
 
   } catch (err) {

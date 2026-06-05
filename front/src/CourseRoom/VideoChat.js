@@ -81,8 +81,8 @@ const VideoChat = ({
   /* ── helpers ─────────────────────────────────────────────────────── */
   const usernameFor = sid => {
     const p = (participants || []).find(p => p.socketId === sid);
-    if (p) return `${p.username}${p.role === 'professor' ? ' 👨‍🏫' : ''}`;
-    if (sid === professorSocketId) return 'Professeur 👨‍🏫';
+    if (p) return `${p.username}${p.role === 'professor' ? '‍' : ''}`;
+    if (sid === professorSocketId) return 'Professeur‍';
     return sid.slice(0, 8);
   };
 
@@ -117,11 +117,11 @@ const VideoChat = ({
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           localStreamRef.current = stream;
           setLocalStream(stream);
-          setMediaError('⚠️ Micro non disponible.');
+          setMediaError('Micro non disponible.');
           return stream;
         } catch (err) {
           const msg = err.name === 'NotAllowedError'
-            ? '🚫 Caméra refusée. La caméra est OBLIGATOIRE pour rejoindre le cours.\nAutorisez-la dans les paramètres du navigateur puis rechargez.'
+            ? 'Caméra refusée. La caméra est OBLIGATOIRE pour rejoindre le cours.\nAutorisez-la dans les paramètres du navigateur puis rechargez.'
             : `Erreur caméra : ${err.message}`;
           setMediaError(msg);
           return null;
@@ -498,7 +498,7 @@ const VideoChat = ({
   }
 
   /* ── label main levée (étudiant) ────────────────────────────────── */
-  const handLabel = handStatus === 'pending' ? '⏳' : handStatus === 'approved' ? '✅' : handStatus === 'rejected' ? '❌' : '✋';
+  const handLabel = handStatus === 'pending' ? '' : handStatus === 'approved' ? '' : handStatus === 'rejected' ? '' : '';
 
   /* ── JSX ────────────────────────────────────────────────────────── */
   return (
@@ -506,7 +506,7 @@ const VideoChat = ({
       {/* Bandeau partage d'écran */}
       {isSharing && (
         <div className="screen_share_banner">
-          🖥️ Partage d'écran en cours —
+          Partage d'écran en cours —
           <button onClick={stopScreenShare}>Arrêter le partage</button>
         </div>
       )}
@@ -516,13 +516,13 @@ const VideoChat = ({
         <div className="hand_requests_banner">
           {handRequests.map(req => (
             <div key={req.studentSocketId} className="hand_request_item">
-              <span>✋ <strong>{req.username}</strong> demande la parole</span>
+              <span><strong>{req.username}</strong> demande la parole</span>
               <div className="hand_request_actions">
                 <button className="hand_btn accept" onClick={() => handleAcceptMic(req.studentSocketId)}>
-                  ✅ Accepter
+                  Accepter
                 </button>
                 <button className="hand_btn reject" onClick={() => handleRejectMic(req.studentSocketId)}>
-                  ❌ Refuser
+                  Refuser
                 </button>
               </div>
             </div>
@@ -554,7 +554,7 @@ const VideoChat = ({
                         <video ref={localVideoRef} autoPlay muted playsInline />
                       )}
                       <div className="video_tile_label">
-                        {user?.username} (vous) 👨‍🏫 {micMuted ? '🔇' : '🎙️'}
+                        {user?.username} (vous)‍{micMuted ? '' : ''}
                       </div>
                     </div>
                   )
@@ -586,7 +586,7 @@ const VideoChat = ({
                         <video ref={localVideoRef} autoPlay muted playsInline />
                       )}
                       <div className="video_tile_label">
-                        {user?.username} (vous) {micMuted ? '🔇' : '🎙️'}
+                        {user?.username} (vous) {micMuted ? '' : ''}
                       </div>
                     </div>
                   ) : null;
@@ -620,7 +620,7 @@ const VideoChat = ({
                         <video ref={localVideoRef} autoPlay muted playsInline />
                       )}
                       <div className="video_tile_label">
-                        {user?.username} {micMuted ? '🔇' : '🎙️'}
+                        {user?.username} {micMuted ? '' : ''}
                       </div>
                     </div>
                   );
@@ -635,10 +635,10 @@ const VideoChat = ({
               ) : isProfessor ? (
                 <p>Cliquez sur <strong>Démarrer le cours</strong> pour activer la vidéo.</p>
               ) : joinStatus === 'pending' ? (
-                <p style={{ color: '#FCD34D' }}>⏳ En attente d'approbation du professeur...</p>
+                <p style={{ color: '#FCD34D' }}>En attente d'approbation du professeur...</p>
               ) : joinStatus === 'rejected' ? (
                 <>
-                  <p style={{ color: '#F87171' }}>❌ Demande refusée par le professeur.</p>
+                  <p style={{ color: '#F87171' }}>Demande refusée par le professeur.</p>
                   <button className="ctrl_session join" style={{ marginTop: 14 }} onClick={onRetryJoin}>
                     <JoinIcon /> Redemander
                   </button>
@@ -668,7 +668,7 @@ const VideoChat = ({
           }
         >
           {micMuted ? <MicOffIcon /> : <MicOnIcon />}
-          {!isProfessor && micLocked && micMuted && <span className="lock_badge">🔒</span>}
+          {!isProfessor && micLocked && micMuted && <span className="lock_badge"></span>}
         </button>
 
         {/* Main levée — étudiant uniquement, quand en session */}
@@ -746,7 +746,7 @@ const RemoteVideo = ({ stream, label, refreshKey, micMuted, className = 'video_t
     <div className={className}>
       <video ref={ref} autoPlay playsInline />
       <div className="video_tile_label">
-        {label} {micMuted ? '🔇' : '🎙️'}
+        {label} {micMuted ? '' : ''}
       </div>
     </div>
   );
