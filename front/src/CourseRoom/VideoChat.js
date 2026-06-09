@@ -1,31 +1,43 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  VIDEOCHAT — le cœur technique de la visioconférence (WebRTC, côté client)
-//  Gère : l'accès caméra/micro (getUserMedia), les connexions pair-à-pair
-//  (RTCPeerConnection), l'échange offre/réponse/ICE via Socket.io, le partage
-//  d'écran, le contrôle du micro (main levée) et l'affichage des flux vidéo.
-//  RAPPEL : la vidéo circule en DIRECT entre navigateurs, pas par le serveur.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  onStudentWantsToJoin, onWebRTCOffer, onWebRTCAnswer,
-  onIceCandidate, onPeerLeft,
+  getSocket,
+  onWebRTCOffer, onWebRTCAnswer, onIceCandidate, onPeerLeft,
+  onExistingPeers,
   sendWebRTCOffer, sendWebRTCAnswer, sendIceCandidate,
   emitScreenShareStarted, emitScreenShareStopped,
   onScreenShareStarted, onScreenShareStopped,
   raiseHand, lowerHand,
-  acceptMic, rejectMic,
-  emitMicState,
   onHandRaised, onHandLowered,
-  onMicAccepted, onMicRejected,
-  onForceMuted, onForceUnmuted,
-  onStudentMicState, onKickedFromVideo,
-} from '../socketConnection/socketConn';
-
+  grantFloor, removeFloor,
+  onFloorGranted, onFloorRemoved, onFloorUpdate,
+  onKickedFromVideo,
+} from '../socketConnection/socketConn'; 
 const ICE_SERVERS = {
   iceServers: [
+    { urls: 'stun:stun.relay.metered.ca:80' },
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:global.relay.metered.ca:80',
+      username: 'ed5f9fd343f6092b3dcc81d7',
+      credential: 'km71W6e3w0iXGk21',
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: 'ed5f9fd343f6092b3dcc81d7',
+      credential: 'km71W6e3w0iXGk21',
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:443',
+      username: 'ed5f9fd343f6092b3dcc81d7',
+      credential: 'km71W6e3w0iXGk21',
+    },
+    {
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: 'ed5f9fd343f6092b3dcc81d7',
+      credential: 'km71W6e3w0iXGk21',
+    },
   ],
 };
 
@@ -33,7 +45,7 @@ const AVATAR_COLORS = ['#4F46E5', '#7C3AED', '#DB2777', '#0891B2', '#059669', '#
 const colorFor    = (n = '') => AVATAR_COLORS[(n || '').charCodeAt(0) % AVATAR_COLORS.length];
 const getInitials = (n = '') => (n || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-/* ── Icons ──────────────────────────────────────────────────────────── */
+
 const MicOnIcon    = () => <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>;
 const MicOffIcon   = () => <svg viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>;
 const CamOnIcon    = () => <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>;
@@ -59,26 +71,26 @@ const VideoChat = ({
   const localVideoRef   = useRef(null);
   const peersRef        = useRef({});
   const iceQueues       = useRef({});
-  const mediaPromiseRef = useRef(null); // empêche les getUserMedia concurrents
+  const mediaPromiseRef = useRef(null); 
 
   const [remoteStreams,    setRemoteStreams]    = useState({});
   const [localStream,     setLocalStream]      = useState(null);
-  const [micMuted,        setMicMuted]         = useState(true);   // étudiants démarrent muets
-  const [micLocked,       setMicLocked]        = useState(true);   // vrai = pas le droit d'activer
+  const [micMuted,        setMicMuted]         = useState(true);   
+  const [micLocked,       setMicLocked]        = useState(true);   
   const [camOff,          setCamOff]           = useState(false);
   const [isSharing,       setIsSharing]        = useState(false);
   const [mediaError,      setMediaError]       = useState('');
   const [screenShareVer,  setScreenShareVer]   = useState(0);
 
-  // ── État main levée (étudiant) ─────────────────────────────────────
-  const [handRaised,   setHandRaised]   = useState(false); // main levée en attente
-  const [handStatus,   setHandStatus]   = useState('idle'); // idle | pending | approved | rejected
+  const [handRaised,   setHandRaised]   = useState(false);
+  const [handStatus,   setHandStatus]   = useState('idle');
 
-  // ── Contrôles prof ────────────────────────────────────────────────
-  const [handRequests,     setHandRequests]     = useState([]); // [{studentSocketId, username}]
-  const [studentMicStates, setStudentMicStates] = useState({}); // {socketId: muted bool}
+  const [handRequests,  setHandRequests]  = useState([]);   // (prof) demandes de parole en attente
+  const [grantedIds,    setGrantedIds]    = useState([]);   // socketIds des étudiants ayant la parole
+  const [amGranted,     setAmGranted]     = useState(false);// (étudiant) ai-je la parole ?
+  const myId = getSocket()?.id;
 
-  /* ── helpers ─────────────────────────────────────────────────────── */
+  
   const usernameFor = sid => {
     const p = (participants || []).find(p => p.socketId === sid);
     if (p) return `${p.username}${p.role === 'professor' ? '‍' : ''}`;
@@ -96,17 +108,13 @@ const VideoChat = ({
     delete iceQueues.current[sid];
   }, []);
 
-  /* ── accès caméra/micro ─────────────────────────────────────────── */
   const getLocalMedia = async (startMuted = false) => {
-    // Si un getUserMedia est déjà en cours → on attend le même résultat (évite 2 streams)
     if (mediaPromiseRef.current) return await mediaPromiseRef.current;
-    // Si la caméra est déjà ouverte → on la réutilise
     if (localStreamRef.current) return localStreamRef.current;
 
     const acquire = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        // Étudiants démarrent avec le micro coupé
         if (startMuted) stream.getAudioTracks().forEach(t => { t.enabled = false; });
         localStreamRef.current = stream;
         setLocalStream(stream);
@@ -129,32 +137,45 @@ const VideoChat = ({
       }
     };
 
-    // Partage la promesse : tout appel concurrent attend le même getUserMedia
     const promise = acquire().finally(() => { mediaPromiseRef.current = null; });
     mediaPromiseRef.current = promise;
     return await promise;
   };
 
-  /* ── attache stream au <video> ──────────────────────────────────── */
   useEffect(() => {
-    if (localVideoRef.current) {
-      if (isSharing && screenStreamRef.current) {
-        localVideoRef.current.srcObject = screenStreamRef.current;
-      } else if (localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
-    }
+    const el = localVideoRef.current;
+    if (!el) return;
+    const target = (isSharing && screenStreamRef.current)
+      ? screenStreamRef.current
+      : localStreamRef.current;
+    // Ne réassigner srcObject que s'il a changé : réassigner le même flux
+    // recharge la vidéo et la fait clignoter.
+    if (target && el.srcObject !== target) el.srcObject = target;
   }, [localStream, camOff, isSharing, remoteStreams]);
 
-  /* ── création RTCPeerConnection ─────────────────────────────────── */
   const createPeer = useCallback((targetId, stream) => {
     if (peersRef.current[targetId]) peersRef.current[targetId].close();
     iceQueues.current[targetId] = [];
     const pc = new RTCPeerConnection(ICE_SERVERS);
     if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
-    pc.onicecandidate = e => { if (e.candidate) sendIceCandidate(targetId, e.candidate); };
-    pc.ontrack = e => { if (e.streams?.[0]) addRemoteStream(targetId, e.streams[0]); };
+    pc.onicecandidate = e => {
+      if (e.candidate) {
+        // DIAG : 'relay' = passe par TURN ; 'srflx'/'host' = direct (STUN/LAN)
+        console.log(`[WebRTC] candidat local -> ${targetId.slice(0, 6)} :`, e.candidate.type, e.candidate.protocol);
+        sendIceCandidate(targetId, e.candidate);
+      } else {
+        console.log(`[WebRTC] fin des candidats -> ${targetId.slice(0, 6)}`);
+      }
+    };
+    pc.ontrack = e => {
+      console.log(`[WebRTC] FLUX RECU de ${targetId.slice(0, 6)} (${e.track.kind})`);
+      if (e.streams?.[0]) addRemoteStream(targetId, e.streams[0]);
+    };
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE ${targetId.slice(0, 6)} : ${pc.iceConnectionState}`);
+    };
     pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] connexion ${targetId.slice(0, 6)} : ${pc.connectionState}`);
       if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) removeRemoteStream(targetId);
     };
     peersRef.current[targetId] = pc;
@@ -167,7 +188,6 @@ const VideoChat = ({
     for (const c of q) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
   };
 
-  /* ── partage d'écran (prof uniquement) ─────────────────────────── */
   const startScreenShare = async () => {
     try {
       const screen = await navigator.mediaDevices.getDisplayMedia({
@@ -205,80 +225,74 @@ const VideoChat = ({
     setIsSharing(false);
   }, [courseId]);
 
-  /* ── main levée (étudiant) ──────────────────────────────────────── */
   const handleRaiseHand = () => {
     if (!professorSocketId) return;
     if (handRaised) {
-      // Baisser la main
       lowerHand(professorSocketId);
       setHandRaised(false);
       setHandStatus('idle');
     } else {
-      // Lever la main
       raiseHand(courseId, professorSocketId);
       setHandRaised(true);
       setHandStatus('pending');
     }
   };
 
-  /* ── actions prof : micro ────────────────────────────────────────── */
+  // Prof : accepte une main levée -> donne la parole (cam+micro de l'étudiant s'activent)
   const handleAcceptMic = (studentSocketId) => {
-    acceptMic(studentSocketId);
+    grantFloor(courseId, studentSocketId);
     setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
-    setStudentMicStates(prev => ({ ...prev, [studentSocketId]: false }));
   };
 
+  // Prof : refuse une demande -> on retire juste la demande de la liste
   const handleRejectMic = (studentSocketId) => {
-    rejectMic(studentSocketId);
     setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
   };
 
 
-  /* ── signaling WebRTC ───────────────────────────────────────────── */
   useEffect(() => {
-    // PROF : étudiant rejoint → envoyer une offre
-    const unsubJoin = onStudentWantsToJoin(async ({ studentSocketId }) => {
-      if (!isProfessor || !localStreamRef.current) return;
-      try {
-        const streamToSend = screenStreamRef.current
-          ? new MediaStream([
-              ...screenStreamRef.current.getVideoTracks(),
-              ...(localStreamRef.current?.getAudioTracks() || []),
-            ])
-          : localStreamRef.current;
-        const pc = createPeer(studentSocketId, streamToSend);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        sendWebRTCOffer(studentSocketId, offer);
-      } catch (e) { console.error('Erreur offre:', e); }
+    // MESH : on reçoit la liste des pairs déjà présents -> on les appelle (offre vers chacun)
+    const unsubExisting = onExistingPeers(async (peers) => {
+      console.log('[WebRTC] existing-peers reçu :', (peers || []).map(p => p.socketId.slice(0, 6)));
+      const stream = localStreamRef.current || await getLocalMedia(true);
+      if (!stream) { console.warn('[WebRTC] pas de flux local -> aucune offre envoyée'); return; }
+      for (const p of (peers || [])) {
+        try {
+          const pc = createPeer(p.socketId, stream);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          console.log('[WebRTC] OFFRE envoyée ->', p.socketId.slice(0, 6));
+          sendWebRTCOffer(p.socketId, offer);
+        } catch (e) { console.error('Erreur offre mesh:', e); }
+      }
     });
 
-    // ÉTUDIANT : reçoit l'offre du prof
+    // On reçoit une offre d'un pair (prof OU étudiant) -> on répond
     const unsubOffer = onWebRTCOffer(async ({ fromSocketId, offer }) => {
-      if (isProfessor) return;
+      console.log('[WebRTC] OFFRE reçue de', fromSocketId.slice(0, 6));
       try {
         const stream = localStreamRef.current || await getLocalMedia(true);
-        if (!stream) return;
+        if (!stream) { console.warn('[WebRTC] pas de flux local -> pas de réponse'); return; }
         const pc = createPeer(fromSocketId, stream);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         await flushIceQueue(fromSocketId, pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        console.log('[WebRTC] REPONSE envoyée ->', fromSocketId.slice(0, 6));
         sendWebRTCAnswer(fromSocketId, answer);
       } catch (e) { console.error('Erreur réponse:', e); }
     });
 
-    // PROF : reçoit la réponse
     const unsubAnswer = onWebRTCAnswer(async ({ fromSocketId, answer }) => {
+      console.log('[WebRTC] REPONSE reçue de', fromSocketId.slice(0, 6));
       const pc = peersRef.current[fromSocketId];
-      if (!pc) return;
+      if (!pc) { console.warn('[WebRTC] réponse reçue mais aucun peer pour', fromSocketId.slice(0, 6)); return; }
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         await flushIceQueue(fromSocketId, pc);
       } catch (e) { console.error('Erreur answer:', e); }
     });
 
-    // ICE candidates avec buffer
     const unsubIce = onIceCandidate(async ({ fromSocketId, candidate }) => {
       const pc = peersRef.current[fromSocketId];
       if (!pc) return;
@@ -292,12 +306,17 @@ const VideoChat = ({
 
     const unsubLeft = onPeerLeft(({ socketId }) => {
       removeRemoteStream(socketId);
-      // Nettoyer les demandes de ce student si prof
       setHandRequests(prev => prev.filter(r => r.studentSocketId !== socketId));
-      setStudentMicStates(prev => { const n = {...prev}; delete n[socketId]; return n; });
+      setGrantedIds(prev => prev.filter(id => id !== socketId));
     });
 
-    // Partage d'écran
+    // Tout le monde apprend qui a la parole (pour l'affichage)
+    const unsubFloor = onFloorUpdate(({ socketId, granted }) => {
+      setGrantedIds(prev => granted
+        ? [...new Set([...prev, socketId])]
+        : prev.filter(id => id !== socketId));
+    });
+
     const unsubScreenStart = onScreenShareStarted(() => {
       if (isProfessor) return;
       setTimeout(() => setScreenShareVer(v => v + 1), 200);
@@ -307,108 +326,59 @@ const VideoChat = ({
       setTimeout(() => setScreenShareVer(v => v + 1), 200);
     });
 
-    // ── MICRO : listeners selon le rôle ───────────────────────────
-    let unsubHandRaised, unsubHandLowered, unsubMicAccepted,
-        unsubMicRejected, unsubForceMuted, unsubForceUnmuted, unsubStudentMic;
+    let unsubHandRaised, unsubHandLowered, unsubGranted, unsubRemoved;
 
     if (isProfessor) {
-      // Prof reçoit les demandes de parole
       unsubHandRaised = onHandRaised(({ studentSocketId, username }) => {
-        setHandRequests(prev => {
-          if (prev.find(r => r.studentSocketId === studentSocketId)) return prev;
-          return [...prev, { studentSocketId, username }];
-        });
+        setHandRequests(prev =>
+          prev.find(r => r.studentSocketId === studentSocketId)
+            ? prev
+            : [...prev, { studentSocketId, username }]);
       });
       unsubHandLowered = onHandLowered(({ studentSocketId }) => {
         setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
       });
-      // Prof voit l'état micro de chaque étudiant
-      unsubStudentMic = onStudentMicState(({ studentSocketId, muted }) => {
-        setStudentMicStates(prev => ({ ...prev, [studentSocketId]: muted }));
-      });
     } else {
-      // Étudiant reçoit la réponse du prof
-      unsubMicAccepted = onMicAccepted(() => {
-        // Active la piste audio dans le stream ET dans tous les senders du peer connection
-        const stream = localStreamRef.current;
-        const t = stream?.getAudioTracks()[0];
-        if (t) {
-          t.enabled = true;
-          // S'assurer que le sender envoie bien cette piste
-          Object.values(peersRef.current).forEach(pc => {
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-            if (sender && sender.track !== t) {
-              sender.replaceTrack(t).catch(() => {});
-            } else if (sender) {
-              sender.track.enabled = true;
-            }
-          });
-        }
-        setMicMuted(false);
-        setMicLocked(false);
-        setHandRaised(false);
-        setHandStatus('approved');
-        emitMicState(courseId, false);
-        setTimeout(() => setHandStatus('idle'), 3000);
+      // Étudiant : le prof m'accorde la parole -> j'active ma cam et mon micro
+      unsubGranted = onFloorGranted(() => {
+        const s = localStreamRef.current;
+        s?.getVideoTracks().forEach(t => { t.enabled = true; });
+        s?.getAudioTracks().forEach(t => { t.enabled = true; });
+        setAmGranted(true); setCamOff(false); setMicMuted(false);
+        setHandRaised(false); setHandStatus('idle');
       });
-      unsubMicRejected = onMicRejected(() => {
-        setHandRaised(false);
-        setHandStatus('rejected');
-        setTimeout(() => setHandStatus('idle'), 3000);
-      });
-      // Prof force coupe le micro
-      unsubForceMuted = onForceMuted(() => {
-        const t = localStreamRef.current?.getAudioTracks()[0];
-        if (t) t.enabled = false;
-        setMicMuted(true);
-        setMicLocked(true);
-        setHandRaised(false);
-        setHandStatus('idle');
-        emitMicState(courseId, true);
-      });
-      // Prof active directement le micro
-      unsubForceUnmuted = onForceUnmuted(() => {
-        const stream = localStreamRef.current;
-        const t = stream?.getAudioTracks()[0];
-        if (t) {
-          t.enabled = true;
-          Object.values(peersRef.current).forEach(pc => {
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-            if (sender && sender.track !== t) {
-              sender.replaceTrack(t).catch(() => {});
-            } else if (sender) {
-              sender.track.enabled = true;
-            }
-          });
-        }
-        setMicMuted(false);
-        setMicLocked(false);
-        emitMicState(courseId, false);
+      // Le prof me retire la parole -> je coupe ma cam et mon micro
+      unsubRemoved = onFloorRemoved(() => {
+        const s = localStreamRef.current;
+        s?.getVideoTracks().forEach(t => { t.enabled = false; });
+        s?.getAudioTracks().forEach(t => { t.enabled = false; });
+        setAmGranted(false); setCamOff(true); setMicMuted(true);
       });
     }
 
     return () => {
-      unsubJoin?.(); unsubOffer?.(); unsubAnswer?.();
-      unsubIce?.(); unsubLeft?.();
+      unsubExisting?.(); unsubOffer?.(); unsubAnswer?.();
+      unsubIce?.(); unsubLeft?.(); unsubFloor?.();
       unsubScreenStart?.(); unsubScreenStop?.();
       unsubHandRaised?.(); unsubHandLowered?.();
-      unsubMicAccepted?.(); unsubMicRejected?.();
-      unsubForceMuted?.(); unsubForceUnmuted?.();
-      unsubStudentMic?.();
+      unsubGranted?.(); unsubRemoved?.();
     };
   }, [isProfessor, courseId, createPeer, addRemoteStream, removeRemoteStream]);
 
-  // Démarre la caméra de l'étudiant quand accepté (micro verrouillé par défaut)
   useEffect(() => {
     if (!isProfessor && inVideoSession && !localStreamRef.current) {
-      getLocalMedia(true).then(() => {
+      getLocalMedia(true).then((s) => {
+        // L'étudiant démarre cam ET micro coupés (il n'est que dans la liste).
+        // Les pistes sont quand même présentes (désactivées) pour le mesh :
+        // quand le prof l'interroge, on les réactive sans renégocier.
+        s?.getVideoTracks().forEach(t => { t.enabled = false; });
         setMicMuted(true);
         setMicLocked(true);
+        setCamOff(true);
       });
     }
   }, [inVideoSession, isProfessor]);
 
-  // Nettoyage
   useEffect(() => {
     return () => {
       localStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -417,18 +387,14 @@ const VideoChat = ({
     };
   }, []);
 
-  /* ── contrôles ──────────────────────────────────────────────────── */
   const toggleMic = () => {
-    // Étudiant ne peut pas activer sans permission
-    if (!isProfessor && micLocked && micMuted) return;
+    // Étudiant : ne peut activer/couper son micro que s'il a la parole.
+    if (!isProfessor && !amGranted) return;
     const t = localStreamRef.current?.getAudioTracks()[0];
     if (!t) return;
     const newMuted = !micMuted;
     t.enabled = !newMuted;
     setMicMuted(newMuted);
-    // Si l'étudiant se coupe lui-même → il se reverrouille
-    if (!isProfessor && newMuted) setMicLocked(true);
-    if (!isProfessor) emitMicState(courseId, newMuted);
   };
 
   const toggleCam = () => {
@@ -438,9 +404,8 @@ const VideoChat = ({
   };
 
   const handleStartSession = async () => {
-    const stream = await getLocalMedia(false); // prof démarre avec micro actif
+    const stream = await getLocalMedia(false); 
     if (!stream) return;
-    // Force l'activation explicite de la piste audio
     stream.getAudioTracks().forEach(t => { t.enabled = true; });
     setMicMuted(false);
     setMicLocked(false);
@@ -453,7 +418,7 @@ const VideoChat = ({
     setLocalStream(null); setIsSharing(false);
     Object.values(peersRef.current).forEach(pc => pc.close());
     peersRef.current = {}; setRemoteStreams({});
-    setHandRequests([]); setStudentMicStates({});
+    setHandRequests([]); setGrantedIds([]);
     onEndSession();
   };
 
@@ -465,7 +430,6 @@ const VideoChat = ({
     onLeaveVideo();
   };
 
-  // Étudiant expulsé : couper la caméra et fermer les connexions
   useEffect(() => {
     if (isProfessor) return;
     const unsub = onKickedFromVideo(() => {
@@ -478,16 +442,12 @@ const VideoChat = ({
     return () => unsub?.();
   }, [isProfessor]);
 
-  /* ── vidéos distantes ─────────────────────────────────────────── */
-  const remoteEntries = Object.entries(remoteStreams).filter(([sid]) => {
-    if (isProfessor) return true;
-    // Étudiant : affiche le prof par son socket ID
-    // Si professorSocketId pas encore connu, affiche le premier stream disponible
-    return professorSocketId ? sid === professorSocketId : true;
-  });
-  const hasVideo = localStream || remoteEntries.length > 0;
+  // Flux du professeur (affiché en grand pour les étudiants).
+  const profStream = professorSocketId ? remoteStreams[professorSocketId] : null;
+  // Étudiants ayant la parole (affichés dans le bandeau, pour TOUT le monde).
+  const grantedList = grantedIds.filter(sid => sid !== professorSocketId);
+  const hasVideo = localStream || Object.keys(remoteStreams).length > 0;
 
-  /* ── bouton session ─────────────────────────────────────────────── */
   let sessionBtn = null;
   if (isProfessor) {
     sessionBtn = inVideoSession
@@ -497,13 +457,11 @@ const VideoChat = ({
     sessionBtn = <button className="ctrl_session leave" onClick={handleLeaveVideo}><StopIcon /> Quitter</button>;
   }
 
-  /* ── label main levée (étudiant) ────────────────────────────────── */
   const handLabel = handStatus === 'pending' ? '' : handStatus === 'approved' ? '' : handStatus === 'rejected' ? '' : '';
 
-  /* ── JSX ────────────────────────────────────────────────────────── */
   return (
     <>
-      {/* Bandeau partage d'écran */}
+      {}
       {isSharing && (
         <div className="screen_share_banner">
           Partage d'écran en cours —
@@ -511,7 +469,7 @@ const VideoChat = ({
         </div>
       )}
 
-      {/* Notifications demandes de parole (prof) */}
+      {}
       {isProfessor && handRequests.length > 0 && (
         <div className="hand_requests_banner">
           {handRequests.map(req => (
@@ -530,86 +488,52 @@ const VideoChat = ({
         </div>
       )}
 
-      {/* Contenu vidéo + panneau participants */}
+      {}
       <div className="video_content_row">
         <div className="video_area">
           {hasVideo ? (
-            <div className="video_layout">
-              <div className="video_main_area">
-                {isProfessor ? (
-                  localStream && (
-                    <div className="video_tile_main local">
-                      {isSharing ? (
-                        <div className="video_tile_sharing">
-                          <ScreenIcon />
-                          <span>Partage d'écran actif</span>
-                        </div>
-                      ) : camOff ? (
-                        <div className="video_tile_cam_off">
-                          <div className="avatar" style={{ background: colorFor(user?.username) }}>
-                            {getInitials(user?.username)}
-                          </div>
-                        </div>
-                      ) : (
-                        <video ref={localVideoRef} autoPlay muted playsInline />
-                      )}
-                      <div className="video_tile_label">
-                        {user?.username} (vous)‍{micMuted ? '' : ''}
+            <div className="video_speakers">
+              {/* Tuile du PROFESSEUR (toujours affichée) */}
+              {isProfessor ? (
+                <div className="speaker_tile local">
+                  {isSharing ? (
+                    <div className="video_tile_sharing">
+                      <ScreenIcon /><span>Partage d'écran actif</span>
+                    </div>
+                  ) : camOff ? (
+                    <div className="video_tile_cam_off">
+                      <div className="avatar" style={{ background: colorFor(user?.username) }}>
+                        {getInitials(user?.username)}
                       </div>
                     </div>
-                  )
-                ) : (() => {
-                  // Priorité au socket ID du prof ; sinon premier stream disponible
-                  const profEntry = remoteEntries.find(([sid]) => sid === professorSocketId)
-                    || (remoteEntries.length > 0 ? remoteEntries[0] : null);
-                  if (profEntry) {
-                    const [sid, stream] = profEntry;
-                    return (
-                      <RemoteVideo
-                        className="video_tile_main"
-                        stream={stream}
-                        label={usernameFor(sid)}
-                        refreshKey={screenShareVer}
-                        micMuted={false}
-                      />
-                    );
-                  }
-                  return localStream ? (
-                    <div className="video_tile_main local">
-                      {camOff ? (
-                        <div className="video_tile_cam_off">
-                          <div className="avatar" style={{ background: colorFor(user?.username) }}>
-                            {getInitials(user?.username)}
-                          </div>
-                        </div>
-                      ) : (
-                        <video ref={localVideoRef} autoPlay muted playsInline />
-                      )}
-                      <div className="video_tile_label">
-                        {user?.username} (vous) {micMuted ? '' : ''}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
+                  ) : (
+                    <video ref={localVideoRef} autoPlay muted playsInline />
+                  )}
+                  <div className="video_tile_label">{user?.username} (vous)</div>
+                </div>
+              ) : profStream ? (
+                <RemoteVideo
+                  className="speaker_tile"
+                  stream={profStream}
+                  label={usernameFor(professorSocketId)}
+                  refreshKey={screenShareVer}
+                  micMuted={false}
+                />
+              ) : (
+                <div className="speaker_tile">
+                  <div className="video_tile_cam_off">
+                    <div className="avatar" style={{ background: '#1B2B4B' }}>P</div>
+                  </div>
+                  <div className="video_tile_label">Professeur (connexion…)</div>
+                </div>
+              )}
 
-              <div className="video_strip">
-                {isProfessor ? (
-                  remoteEntries.map(([sid, stream]) => (
-                    <RemoteVideo
-                      key={sid}
-                      className="video_tile_strip"
-                      stream={stream}
-                      label={usernameFor(sid)}
-                      refreshKey={screenShareVer}
-                      micMuted={studentMicStates[sid] !== false}
-                    />
-                  ))
-                ) : (() => {
-                  const hasProfStream = remoteEntries.some(([sid]) => sid === professorSocketId);
-                  if (!hasProfStream || !localStream) return null;
+              {/* Tuile de l'ÉTUDIANT INTERROGÉ (un seul à la fois, même taille, à côté) */}
+              {grantedList.length > 0 && (() => {
+                const sid = grantedList[0];
+                if (sid === myId) {
                   return (
-                    <div className="video_tile_strip local">
+                    <div className="speaker_tile local" key={sid}>
                       {camOff ? (
                         <div className="video_tile_cam_off">
                           <div className="avatar" style={{ background: colorFor(user?.username) }}>
@@ -617,15 +541,28 @@ const VideoChat = ({
                           </div>
                         </div>
                       ) : (
-                        <video ref={localVideoRef} autoPlay muted playsInline />
+                        <video
+                          ref={el => { localVideoRef.current = el; if (el && el.srcObject !== localStreamRef.current) el.srcObject = localStreamRef.current; }}
+                          autoPlay muted playsInline
+                        />
                       )}
-                      <div className="video_tile_label">
-                        {user?.username} {micMuted ? '' : ''}
-                      </div>
+                      <div className="video_tile_label">{user?.username} (vous)</div>
                     </div>
                   );
-                })()}
-              </div>
+                }
+                const stream = remoteStreams[sid];
+                if (!stream) return null;
+                return (
+                  <RemoteVideo
+                    key={sid}
+                    className="speaker_tile"
+                    stream={stream}
+                    label={usernameFor(sid)}
+                    refreshKey={screenShareVer}
+                    micMuted={false}
+                  />
+                );
+              })()}
             </div>
           ) : (
             <div className="video_banner">
@@ -654,35 +591,30 @@ const VideoChat = ({
 
       </div>
 
-      {/* Barre de contrôle */}
+      {}
       <div className="video_controls">
-        {/* Micro */}
-        <button
-          className={`ctrl_circle ${micMuted ? 'mic_off' : 'mic_on'} ${!isProfessor && micLocked && micMuted ? 'mic_locked' : ''}`}
-          onClick={toggleMic}
-          disabled={!localStream}
-          title={
-            !isProfessor && micLocked && micMuted
-              ? 'Levez la main pour demander la parole'
-              : micMuted ? 'Activer le micro' : 'Couper le micro'
-          }
-        >
-          {micMuted ? <MicOffIcon /> : <MicOnIcon />}
-          {!isProfessor && micLocked && micMuted && <span className="lock_badge"></span>}
-        </button>
+        {/* Micro : prof toujours ; étudiant seulement s'il a la parole */}
+        {(isProfessor || amGranted) && (
+          <button
+            className={`ctrl_circle ${micMuted ? 'mic_off' : 'mic_on'}`}
+            onClick={toggleMic}
+            disabled={!localStream}
+            title={micMuted ? 'Activer le micro' : 'Couper le micro'}
+          >
+            {micMuted ? <MicOffIcon /> : <MicOnIcon />}
+          </button>
+        )}
 
-        {/* Main levée — étudiant uniquement, quand en session */}
+        {/* Main levée : étudiant uniquement (désactivée s'il a déjà la parole) */}
         {!isProfessor && inVideoSession && (
           <button
             className={`ctrl_circle hand_btn_ctrl ${handStatus}`}
             onClick={handleRaiseHand}
-            disabled={!localStream || handStatus === 'approved'}
+            disabled={!localStream || amGranted}
             title={
-              handRaised
-                ? 'Baisser la main'
-                : handStatus === 'approved'
-                ? 'Micro autorisé'
-                : 'Demander la parole'
+              amGranted ? 'Vous avez la parole'
+              : handRaised ? 'Baisser la main'
+              : 'Demander la parole'
             }
           >
             <HandIcon />
@@ -690,7 +622,7 @@ const VideoChat = ({
           </button>
         )}
 
-        {/* Caméra — prof uniquement */}
+        {}
         {isProfessor && (
           <button
             className={`ctrl_circle ${camOff ? 'cam_off' : 'cam_on'}`}
@@ -701,7 +633,7 @@ const VideoChat = ({
           </button>
         )}
 
-        {/* Partage d'écran — prof uniquement */}
+        {}
         {isProfessor && inVideoSession && (
           <button
             className={`ctrl_circle ${isSharing ? 'screen_active' : 'screen_idle'}`}
@@ -730,7 +662,6 @@ const VideoChat = ({
   );
 };
 
-/* ── Vidéo distante ──────────────────────────────────────────────────── */
 const RemoteVideo = ({ stream, label, refreshKey, micMuted, className = 'video_tile' }) => {
   const ref = useRef(null);
 
@@ -738,7 +669,7 @@ const RemoteVideo = ({ stream, label, refreshKey, micMuted, className = 'video_t
     if (!ref.current || !stream) return;
     ref.current.srcObject = null;
     ref.current.srcObject = stream;
-    // Force la lecture audio (autoplay policy du navigateur)
+
     ref.current.play().catch(() => {});
   }, [stream, refreshKey]);
 

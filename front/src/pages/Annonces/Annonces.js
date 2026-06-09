@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE ANNONCES
-//  Le professeur publie des annonces (ciblées par filière ou pour tous).
-//  Les étudiants concernés les voient ici et reçoivent un email.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FILIERES } from '../../filieres';

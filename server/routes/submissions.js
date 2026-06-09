@@ -1,12 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES DES SOUMISSIONS DE DEVOIRS
-//  Gère : l'étudiant qui dépose son travail (PDF), le professeur qui le note,
-//  le téléchargement et la suppression.
-// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
-const multer  = require('multer'); // librairie qui gère l'upload de fichiers (multipart/form-data)
-const path    = require('path');   // utilitaires de chemins de fichiers
-const fs      = require('fs');     // accès au système de fichiers (lire/écrire/supprimer)
+const multer  = require('multer'); 
+const path    = require('path');   
+const fs      = require('fs');    
 const { getDb }       = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { sendSubmissionEmail, sendGradeEmail } = require('../email');
@@ -14,23 +10,20 @@ const { uploadToDrive, streamFromDrive, deleteFromDrive, driveEnabled } = requir
 
 const router = express.Router();
 
-// Dossier local (utilisé seulement si Google Drive est désactivé).
 const uploadsDir = process.env.UPLOADS_PATH
   ? path.resolve(process.env.UPLOADS_PATH.trim())
   : path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// multer en mémoire : le fichier arrive dans req.file.buffer.
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') cb(null, true);
     else cb(new Error('Seuls les fichiers PDF sont acceptés.'));
   },
-  limits: { fileSize: 25 * 1024 * 1024 }, // taille max : 25 Mo
+  limits: { fileSize: 25 * 1024 * 1024 }, 
 });
 
-// Range le fichier sur Drive (si activé) ou sur le disque, retourne la clé de stockage.
 async function storeFile(file) {
   if (driveEnabled()) {
     const driveFile = await uploadToDrive(file.buffer, file.originalname);
@@ -41,19 +34,13 @@ async function storeFile(file) {
   return localName;
 }
 
-// Supprime le fichier physique (Drive ou disque) sans planter si absent.
 async function removeFile(storedName) {
   if (driveEnabled()) { await deleteFromDrive(storedName); return; }
   const p = path.join(uploadsDir, storedName);
   if (fs.existsSync(p)) fs.unlinkSync(p);
 }
 
-/* ── Soumettre / remplacer son travail (étudiant) ─────────────────────────────
-   POST /api/submissions/upload/:courseId
-   upload.single('file') = multer traite UN fichier nommé "file" avant notre code.
-─────────────────────────────────────────────────────────────────────────────── */
 router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req, res) => {
-  // Seul un étudiant peut déposer un travail
   if (req.user.role !== 'student')
     return res.status(403).json({ error: 'Réservé aux étudiants.' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
@@ -61,21 +48,20 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
   try {
     const db = await getDb();
 
-    // Un étudiant n'a qu'UNE soumission par devoir : s'il redépose,
-    // on supprime l'ancienne (fichier sur le disque + ligne en base) avant d'enregistrer la nouvelle.
+   
     const existing = await db.get(
       'SELECT * FROM homework_submissions WHERE course_id = ? AND student_id = ?',
       [req.params.courseId, req.user.id]
     );
     if (existing) {
-      await removeFile(existing.filename); // supprime l'ancien fichier (Drive ou disque)
+      await removeFile(existing.filename);
       await db.run('DELETE FROM homework_submissions WHERE id = ?', [existing.id]);
     }
 
-    // Range le nouveau fichier (Drive ou disque) et récupère sa clé de stockage.
+   
     const storedName = await storeFile(req.file);
 
-    // filename = clé de stockage (ID Drive ou nom local) ; original_name = nom d'origine.
+   
     const result = await db.run(
       `INSERT INTO homework_submissions (course_id, student_id, student_name, filename, original_name, size)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -83,7 +69,6 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
        storedName, req.file.originalname, req.file.size]
     );
 
-    // Récupère l'email du professeur (jointure courses ↔ users) pour le prévenir.
     const course = await db.get(
       `SELECT c.title, u.email, u.username
        FROM courses c JOIN users u ON c.professor_id = u.id
@@ -110,18 +95,15 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
   }
 });
 
-/* ── Télécharger une soumission ───────────────────────────────────────────── */
 router.get('/download/:id', verifyToken, async (req, res) => {
   try {
     const db  = await getDb();
     const sub = await db.get('SELECT * FROM homework_submissions WHERE id = ?', [req.params.id]);
     if (!sub) return res.status(404).json({ error: 'Soumission introuvable.' });
 
-    // Étudiant : peut télécharger seulement la sienne
     if (req.user.role === 'student' && sub.student_id !== req.user.id)
       return res.status(403).json({ error: 'Accès refusé.' });
 
-    // Drive : on récupère depuis Google Drive (filename = ID Drive)
     if (driveEnabled()) {
       return await streamFromDrive(sub.filename, res, sub.original_name);
     }
@@ -135,7 +117,6 @@ router.get('/download/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ── Liste des soumissions d'un devoir ────────────────────────────────────── */
 router.get('/:courseId', verifyToken, async (req, res) => {
   try {
     const db = await getDb();
@@ -146,7 +127,6 @@ router.get('/:courseId', verifyToken, async (req, res) => {
       );
       return res.json(rows);
     }
-    // Étudiant : seulement la sienne
     const row = await db.get(
       'SELECT * FROM homework_submissions WHERE course_id = ? AND student_id = ?',
       [req.params.courseId, req.user.id]
@@ -157,16 +137,11 @@ router.get('/:courseId', verifyToken, async (req, res) => {
   }
 });
 
-/* ── Noter une soumission (prof uniquement) ───────────────────────────────────
-   PATCH /api/submissions/:id/grade   (PATCH = modification partielle)
-─────────────────────────────────────────────────────────────────────────────── */
 router.patch('/:id/grade', verifyToken, async (req, res) => {
-  // Contrôle de rôle : seul un professeur peut noter.
   if (req.user.role !== 'professor')
     return res.status(403).json({ error: 'Réservé aux professeurs.' });
 
   const { grade, grade_comment } = req.body;
-  // Validation : si une note est fournie, elle doit être un nombre entre 0 et 20.
   if (grade !== null && grade !== undefined) {
     const g = parseFloat(grade);
     if (isNaN(g) || g < 0 || g > 20)
@@ -178,15 +153,12 @@ router.patch('/:id/grade', verifyToken, async (req, res) => {
     const sub = await db.get('SELECT * FROM homework_submissions WHERE id = ?', [req.params.id]);
     if (!sub) return res.status(404).json({ error: 'Soumission introuvable.' });
 
-    // g = note convertie en nombre, ou null si le champ est vide (= "non noté").
     const g = (grade !== null && grade !== undefined && grade !== '') ? parseFloat(grade) : null;
     await db.run(
       'UPDATE homework_submissions SET grade = ?, grade_comment = ? WHERE id = ?',
       [g, grade_comment || '', req.params.id]
     );
 
-    // On prévient l'étudiant par email qu'il a reçu une note.
-    // .catch(() => {}) → si l'envoi échoue, on ignore (ne bloque pas la réponse).
     const course = await db.get('SELECT title FROM courses WHERE id = ?', [sub.course_id]);
     const student = await db.get('SELECT email FROM users WHERE id = ?', [sub.student_id]);
     if (student && course) {
@@ -201,18 +173,16 @@ router.patch('/:id/grade', verifyToken, async (req, res) => {
   }
 });
 
-/* ── Supprimer une soumission ─────────────────────────────────────────────── */
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const db  = await getDb();
     const sub = await db.get('SELECT * FROM homework_submissions WHERE id = ?', [req.params.id]);
     if (!sub) return res.status(404).json({ error: 'Soumission introuvable.' });
 
-    // Étudiant : seulement la sienne ; prof/admin : n'importe laquelle
     if (req.user.role === 'student' && sub.student_id !== req.user.id)
       return res.status(403).json({ error: 'Accès refusé.' });
 
-    await removeFile(sub.filename); // supprime le fichier (Drive ou disque)
+    await removeFile(sub.filename); 
     await db.run('DELETE FROM homework_submissions WHERE id = ?', [req.params.id]);
     res.json({ message: 'Soumission supprimée.' });
   } catch (err) {

@@ -16,16 +16,15 @@
   align-items: center;
 }
 
-/* ── Logo & titre ─────────────────────────────────────── */
 .auth_logo {
   width: 64px; height: 64px;
-  background: #1B2B4B;
   border-radius: 18px;
+  overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 18px;
   box-shadow: 0 8px 24px rgba(27,43,75,0.18);
 }
-.auth_logo svg { width: 36px; height: 36px; fill: #fff; }
+.auth_logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .auth_brand_name {
   font-size: 26px;
@@ -54,7 +53,6 @@
   margin-bottom: 28px;
 }
 
-/* ── Card formulaire ──────────────────────────────────── */
 .auth_card {
   background: #fff;
   border-radius: 20px;
@@ -78,7 +76,7 @@
   margin-bottom: 22px;
 }
 
-/* ── Rôle ─────────────────────────────────────────────── */
+
 .auth_roles {
   display: flex;
   gap: 8px;
@@ -97,7 +95,6 @@
 .role_btn:hover { border-color: #1B2B4B; color: #1B2B4B; }
 .role_btn.active { background: #1B2B4B; color: #fff; border-color: #1B2B4B; font-weight: 600; }
 
-/* ── Formulaire ───────────────────────────────────────── */
 .auth_form { display: flex; flex-direction: column; gap: 16px; }
 
 .auth_field label {
@@ -154,7 +151,6 @@
 }
 .auth_field select:focus { border-color: #1B2B4B; background-color: #fff; }
 
-/* ── Bouton submit ────────────────────────────────────── */
 .auth_submit {
   width: 100%;
   padding: 14px;
@@ -174,7 +170,6 @@
 .auth_submit:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
 .auth_submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Messages ─────────────────────────────────────────── */
 .auth_error {
   font-size: 13px; color: #DC2626;
   background: #FEF2F2; border: 1px solid #FECACA;
@@ -201,7 +196,6 @@
 }
 .auth_resend button:disabled { color: #9CA3AF; cursor: default; text-decoration: none; }
 
-/* ── Lien switch ──────────────────────────────────────── */
 .auth_forgot_link {
   font-size: 12px; font-weight: 600;
   color: #C8963E; cursor: pointer;
@@ -215,7 +209,6 @@
 .auth_footer_link span { color: #C8963E; cursor: pointer; font-weight: 600; }
 .auth_footer_link span:hover { text-decoration: underline; }
 
-/* ── Hint démo ────────────────────────────────────────── */
 .auth_demo_hint {
   margin-top: 18px;
   width: 100%;

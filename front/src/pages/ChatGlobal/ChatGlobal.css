@@ -168,7 +168,6 @@
   color: #A89880;
 }
 
-/* ── MESSAGES ────────────────────────────────────────────── */
 .chat_messages_list {
   flex: 1;
   overflow-y: auto;
@@ -228,7 +227,6 @@
 .chat_msg_grouped .chat_msg_bubble { border-radius: 4px 16px 16px 16px; }
 .chat_msg_row.own.chat_msg_grouped .chat_msg_bubble { border-radius: 16px 4px 16px 16px; }
 
-/* ── INPUT BAR ───────────────────────────────────────────── */
 .chat_input_bar {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 24px;
@@ -261,7 +259,6 @@
 .send_btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .send_btn svg { width: 16px; height: 16px; }
 
-/* ── Bouton joindre fichier ──────────────────────────── */
 .attach_btn {
   width: 42px; height: 42px;
   background: #fff; color: #7A7060;
@@ -274,7 +271,6 @@
 .attach_btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .attach_btn svg { width: 18px; height: 18px; }
 
-/* ── Bulle fichier ───────────────────────────────────── */
 .chat_file_bubble {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px;

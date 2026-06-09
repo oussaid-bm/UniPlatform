@@ -1,4 +1,3 @@
-/* ── ROOM SHELL ───────────────────────────────────────── */
 .course_room {
   display: flex;
   flex-direction: column;
@@ -9,7 +8,6 @@
   overflow: hidden;
 }
 
-/* ── TOP BAR ──────────────────────────────────────────── */
 .room_nav {
   display: flex;
   align-items: center;
@@ -58,7 +56,6 @@
 }
 .room_participants svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── SESSION BANNER ───────────────────────────────────── */
 .video_session_banner {
   display: flex;
   align-items: center;
@@ -85,7 +82,6 @@
   50% { opacity: 0.8; transform: scale(0.9); box-shadow: 0 0 0 5px rgba(16,185,129,0); }
 }
 
-/* ── BODY: VIDEO + CHAT ───────────────────────────────── */
 .room_body {
   display: flex;
   flex: 1;
@@ -93,7 +89,6 @@
   position: relative;
 }
 
-/* ── Bouton bascule participants ─────────────────────────── */
 .room_participants_btn {
   display: flex;
   align-items: center;
@@ -117,7 +112,6 @@
 }
 .room_participants_btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── Panneau participants coulissant (drawer) ────────────── */
 .room_online_panel {
   position: absolute;
   top: 0; right: 0; bottom: 0;
@@ -199,7 +193,6 @@
   font-size: 12px; color: rgba(255,255,255,0.3);
 }
 
-/* ── Actions prof sur un participant (muter / expulser) ──── */
 .room_participant_actions { display: flex; gap: 5px; flex-shrink: 0; }
 .room_participant_btn {
   width: 28px; height: 28px;
@@ -217,7 +210,18 @@
 }
 .room_participant_btn.kick:hover { background: rgba(239,68,68,0.28); }
 
-/* ── VIDEO SECTION ────────────────────────────────────── */
+/* Bouton "Interroger / Retirer" (avec texte) */
+.room_participant_btn.floor {
+  width: auto; padding: 0 10px; font-size: 12px; font-weight: 600;
+  font-family: inherit;
+  background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.4); color: #A5B4FC;
+}
+.room_participant_btn.floor:hover { background: rgba(99,102,241,0.32); }
+.room_participant_btn.floor.active {
+  background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); color: #6EE7B7;
+}
+.room_participant_btn.floor.active:hover { background: rgba(52,211,153,0.32); }
+
 .video_section {
   flex: 1;
   display: flex;
@@ -227,7 +231,6 @@
   position: relative;
 }
 
-/* Empty state */
 .video_banner {
   flex: 1;
   display: flex;
@@ -249,7 +252,6 @@
 }
 .video_banner_icon svg { width: 32px; height: 32px; stroke: rgba(255,255,255,0.2); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── Video content row (video + participants side panel) ── */
 .video_content_row {
   flex: 1;
   display: flex;
@@ -266,7 +268,34 @@
   min-width: 0;
 }
 
-/* ── New video layout: main + strip ──────────────────────── */
+/* ── Tuiles "intervenants" côte à côte, même taille (prof + étudiant interrogé) ── */
+.video_speakers {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  min-height: 0;
+  align-items: stretch;
+  justify-content: center;
+}
+.speaker_tile {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  background: #1C2333;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.06);
+  transition: border-color 0.2s;
+}
+.speaker_tile.local { border-color: rgba(99,102,241,0.45); }
+.speaker_tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.speaker_tile.local video { transform: scaleX(-1); }
+@media (max-width: 768px) {
+  .video_speakers { flex-direction: column; padding: 8px; gap: 8px; }
+}
+
 .video_layout {
   flex: 1;
   display: flex;
@@ -326,7 +355,6 @@
 .video_tile_strip.local video { transform: scaleX(-1); }
 .video_tile_strip .video_tile_label { font-size: 10px; padding: 3px 7px; bottom: 6px; left: 8px; }
 
-/* ── Legacy grid (kept for backwards compat) ─────────────── */
 .video_grid {
   flex: 1;
   display: grid;
@@ -352,7 +380,6 @@
 
 .video_tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* Effet miroir sur la cam locale uniquement */
 .video_tile.local video { transform: scaleX(-1); }
 
 .video_tile_label {
@@ -378,7 +405,6 @@
   border-radius: 50%;
 }
 
-/* ── CONTROL BAR (bottom of video section) ────────────── */
 .video_controls {
   display: flex;
   align-items: center;
@@ -417,7 +443,6 @@
 .ctrl_circle.cam_off:hover     { background: rgba(239,68,68,0.3); }
 .ctrl_circle.screen_active:hover { background: rgba(99,102,241,0.7); }
 
-/* ── Bandeau partage d'écran ──────────────────────────────────── */
 .screen_share_banner {
   background: rgba(99,102,241,0.2);
   border-bottom: 1px solid rgba(99,102,241,0.4);
@@ -435,7 +460,6 @@
 }
 .screen_share_banner button:hover { background: rgba(239,68,68,0.35); }
 
-/* ── Tuile partage écran ──────────────────────────────────────── */
 .video_tile_sharing {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;
@@ -486,7 +510,6 @@
 .ctrl_endcall:hover { background: #DC2626; transform: scale(1.08); box-shadow: 0 4px 20px rgba(239,68,68,0.4); }
 .ctrl_endcall svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── Mobile chat toggle button ───────────────────────────── */
 .mobile_chat_btn {
   display: none;
   align-items: center;
@@ -554,7 +577,6 @@
   }
 }
 
-/* ── JOIN REQUESTS BAR ────────────────────────────────── */
 .join_requests_bar {
   display: flex;
   flex-direction: column;
@@ -604,7 +626,6 @@
 .join_req_btn.reject { background: rgba(239,68,68,0.2); color: #F87171; }
 .join_req_btn.reject:hover { background: rgba(239,68,68,0.35); }
 
-/* ── PARTICIPANTS PANEL ────────────────────────────────── */
 .participants_panel {
   padding: 14px 14px 10px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -659,7 +680,6 @@
   flex-shrink: 0;
 }
 
-/* ── CHAT SECTION (right sidebar) ─────────────────────── */
 .chat_section {
   width: 300px;
   flex-shrink: 0;
@@ -756,9 +776,6 @@
 .chat_send_btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .chat_send_btn svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── CONTRÔLE MICRO & MAIN LEVÉE ─────────────────────────── */
-
-/* Micro verrouillé (étudiant sans permission) */
 .ctrl_circle.mic_locked {
   opacity: 0.6;
   cursor: not-allowed !important;
@@ -771,7 +788,6 @@
   line-height: 1;
 }
 
-/* Bouton main levée */
 .ctrl_circle.hand_btn_ctrl {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);
@@ -824,7 +840,6 @@
   border: 2px solid #0D1117;
 }
 
-/* ── NOTIFICATIONS DEMANDES DE PAROLE ────────────────────── */
 .hand_requests_banner {
   display: flex;
   flex-direction: column;
@@ -965,7 +980,6 @@
   color: #F87171;
 }
 
-/* ── ONGLETS DROITE ────────────────────────────────────────── */
 .right_tabs {
   display: flex;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -1013,7 +1027,6 @@
 .sidebar_participants .participant_item { padding: 8px 10px; border-radius: 9px; transition: background 0.15s; }
 .sidebar_participants .participant_item:hover { background: rgba(255,255,255,0.04); }
 
-/* ── FILE PANEL ────────────────────────────────────────────── */
 .file_panel {
   flex: 1;
   display: flex;
@@ -1022,7 +1035,6 @@
   min-height: 0;
 }
 
-/* Zone de dépôt */
 .file_drop_zone {
   margin: 12px;
   padding: 20px 16px;
@@ -1061,7 +1073,6 @@
   color: rgba(255,255,255,0.3);
 }
 
-/* Messages */
 .file_msg {
   margin: 0 12px 8px;
   padding: 8px 12px;
@@ -1072,7 +1083,6 @@
 .file_msg.error   { background: rgba(248,113,113,0.15); color: #F87171; border: 1px solid rgba(248,113,113,0.3); }
 .file_msg.success { background: rgba(52,211,153,0.15);  color: #34D399; border: 1px solid rgba(52,211,153,0.3); }
 
-/* Spinner */
 .file_spinner {
   width: 20px; height: 20px;
   border: 2px solid rgba(255,255,255,0.15);
@@ -1082,7 +1092,6 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Liste vide */
 .file_empty {
   flex: 1;
   display: flex;
@@ -1097,7 +1106,6 @@
 .file_empty svg { width: 36px; height: 36px; opacity: 0.4; }
 .file_empty small { font-size: 11px; color: rgba(255,255,255,0.15); }
 
-/* Liste des fichiers */
 .file_list {
   flex: 1;
   overflow-y: auto;
@@ -1109,7 +1117,6 @@
 .file_list::-webkit-scrollbar { width: 3px; }
 .file_list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
-/* Item fichier */
 .file_item {
   display: flex;
   align-items: center;

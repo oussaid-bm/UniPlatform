@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE COURS EN LIGNE (visioconférence)
-//  Liste les sessions vidéo. Le prof crée une session puis entre dans la salle ;
-//  l'étudiant rejoint une session "EN DIRECT". Un clic ouvre la salle (CourseRoom).
-//  Ce sont les cours avec is_live_session = 1 (séparés des cours PDF classiques).
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -75,7 +70,6 @@ const CoursEnLigne = () => {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    // Charge uniquement les sessions live (is_live_session = 1)
     fetch(`${API}/courses`, { headers })
       .then((r) => r.json())
       .then((data) => {
@@ -157,7 +151,7 @@ const CoursEnLigne = () => {
         )}
       </div>
 
-      {/* ── VUE PROFESSEUR ─────────────────────────────────── */}
+      {}
       {isProfessor && (
         <>
           {sessions.length === 0 ? (
@@ -214,7 +208,7 @@ const CoursEnLigne = () => {
         </>
       )}
 
-      {/* ── VUE ÉTUDIANT ───────────────────────────────────── */}
+      {}
       {!isProfessor && (
         <>
           {sessions.length === 0 ? (
@@ -267,7 +261,7 @@ const CoursEnLigne = () => {
         </>
       )}
 
-      {/* ── MODAL CRÉATION SESSION ─────────────────────────── */}
+      {}
       {showModal && (
         <div className="modal_overlay" onClick={() => setShowModal(false)}>
           <div className="modal_box" onClick={(e) => e.stopPropagation()}>
@@ -298,7 +292,7 @@ const CoursEnLigne = () => {
         </div>
       )}
 
-      {/* ── MODAL CAMÉRA ───────────────────────────────────── */}
+      {}
       {camModal && (
         <div className="modal_overlay" onClick={() => setCamModal(null)}>
           <div className="modal_box" onClick={(e) => e.stopPropagation()}>

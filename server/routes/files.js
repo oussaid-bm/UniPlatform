@@ -1,10 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES DES FICHIERS DE COURS (supports PDF)
-//  Le professeur dépose des PDF dans un cours ; les étudiants les téléchargent.
-//  Stockage sur le disque (dossier uploads), métadonnées en base (course_files).
-// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
-const multer  = require('multer'); // gestion de l'upload de fichiers
+const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
 const { getDb }             = require('../db');
@@ -14,7 +10,6 @@ const { uploadToDrive, streamFromDrive, deleteFromDrive, driveEnabled } = requir
 
 const router = express.Router();
 
-// ── Dossier de stockage local (utilisé seulement si Drive désactivé) ─────────
 const uploadsDir = process.env.UPLOADS_PATH
   ? path.resolve(process.env.UPLOADS_PATH.trim())
   : path.join(__dirname, '..', 'uploads');
@@ -25,8 +20,6 @@ try {
   console.error(`Impossible de créer le dossier uploads (${uploadsDir}):`, err.message);
 }
 
-// ── multer en mémoire : le fichier arrive dans req.file.buffer ───────────────
-// On décide ensuite NOUS-MÊMES où le ranger (Google Drive OU disque local).
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
@@ -36,26 +29,23 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-// Range le fichier reçu : sur Google Drive si activé, sinon sur le disque.
-// Retourne la "clé de stockage" (ID Drive OU nom de fichier local) à mettre en base.
 async function storeFile(file) {
   if (driveEnabled()) {
     const driveFile = await uploadToDrive(file.buffer, file.originalname);
-    return driveFile.id; // on stocke l'ID Drive dans la colonne filename
+    return driveFile.id; 
   }
   const localName = Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname);
   fs.writeFileSync(path.join(uploadsDir, localName), file.buffer);
   return localName;
 }
 
-// ── Upload (prof uniquement) ────────────────────────────────────────────────
 router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req, res) => {
   if (req.user.role !== 'professor')
     return res.status(403).json({ error: 'Réservé aux professeurs.' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
   try {
-    const storedName = await storeFile(req.file); // Drive ou disque
+    const storedName = await storeFile(req.file); 
     const db = await getDb();
     const result = await db.run(
       `INSERT INTO course_files (course_id, filename, original_name, size, uploaded_by, uploader_name)
@@ -73,12 +63,11 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
       created_at:    new Date().toISOString(),
     });
 
-    // ── Notification email (même logique que le live) ─────────────────
     const course = await db.get('SELECT * FROM courses WHERE id = ?', [req.params.courseId]);
     if (!course) return;
 
     const filiereTarget = (course.filiere || '').trim();
-    if (!filiereTarget) return; // "Toutes les filières" → pas d'email
+    if (!filiereTarget) return;
 
     const students = await db.all(
       'SELECT username, email FROM users WHERE role = ? AND filiere = ? AND email_verified = 1',
@@ -99,18 +88,15 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
   }
 });
 
-// ── Téléchargement ── DOIT être avant /:courseId ─────────────────────────────
 router.get('/download/:fileId', verifyToken, async (req, res) => {
   try {
     const db   = await getDb();
     const file = await db.get('SELECT * FROM course_files WHERE id = ?', [req.params.fileId]);
     if (!file) return res.status(404).json({ error: 'Fichier introuvable.' });
 
-    // Drive : on récupère depuis Google Drive (filename = ID Drive)
     if (driveEnabled()) {
       return await streamFromDrive(file.filename, res, file.original_name);
     }
-    // Local : on envoie depuis le disque
     const filePath = path.join(uploadsDir, file.filename);
     if (!fs.existsSync(filePath))
       return res.status(404).json({ error: 'Fichier manquant sur le disque.' });
@@ -127,7 +113,6 @@ router.get('/download/:fileId', verifyToken, async (req, res) => {
   }
 });
 
-// ── Liste des fichiers d'un cours ── APRÈS /download/ ────────────────────────
 router.get('/:courseId', verifyToken, async (req, res) => {
   try {
     const db   = await getDb();
@@ -142,7 +127,6 @@ router.get('/:courseId', verifyToken, async (req, res) => {
   }
 });
 
-// ── Suppression (prof uniquement) ───────────────────────────────────────────
 router.delete('/:fileId', verifyToken, async (req, res) => {
   if (req.user.role !== 'professor')
     return res.status(403).json({ error: 'Réservé aux professeurs.' });
@@ -153,7 +137,6 @@ router.delete('/:fileId', verifyToken, async (req, res) => {
     if (file.uploaded_by !== req.user.id)
       return res.status(403).json({ error: 'Vous ne pouvez supprimer que vos propres fichiers.' });
 
-    // Supprime le fichier physique (Drive ou disque)
     if (driveEnabled()) {
       await deleteFromDrive(file.filename);
     } else {

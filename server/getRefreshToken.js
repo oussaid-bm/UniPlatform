@@ -1,11 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  SCRIPT À LANCER UNE SEULE FOIS — obtenir le refresh token Google Drive
-//  Usage :
-//    1. Mettre GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans .env
-//    2. node getRefreshToken.js
-//    3. Ouvrir l'URL affichée, autoriser, copier le code, le coller ici.
-//    4. Copier le refresh_token affiché dans .env (GOOGLE_REFRESH_TOKEN=...)
-// ─────────────────────────────────────────────────────────────────────────────
+
 require('dotenv').config();
 const { google } = require('googleapis');
 const readline = require('readline');
@@ -21,8 +14,8 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, 'urn:ietf:wg:oauth:2.0:oob');
 
 const url = oauth2.generateAuthUrl({
-  access_type: 'offline',          // pour obtenir un refresh_token
-  prompt: 'consent',               // force l'affichage du refresh_token
+  access_type: 'offline',          
+  prompt: 'consent',               
   scope: ['https://www.googleapis.com/auth/drive.file'],
 });
 

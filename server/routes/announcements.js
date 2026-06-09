@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES DES ANNONCES
-//  Le professeur publie des annonces ciblées par filière ; les étudiants
-//  de cette filière les voient et reçoivent un email de notification.
-// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
@@ -55,9 +51,8 @@ router.post('/', verifyToken, async (req, res) => {
       created_at: new Date().toISOString(),
     });
 
-    // ── Notification email (même logique que le live) ─────────────────
     const filiereTarget = (filiere || '').trim();
-    if (!filiereTarget) return; // "Toutes les filières" → pas d'email
+    if (!filiereTarget) return; 
 
     try {
       const students = await db.all(

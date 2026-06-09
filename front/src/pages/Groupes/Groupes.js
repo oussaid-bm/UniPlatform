@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE GROUPES D'ÉTUDE
-//  Liste à gauche, chat du groupe à droite (temps réel + fichiers + liste en ligne).
-//  Prof : crée un groupe (filière → choix des membres), gère/expulse les membres.
-//  Étudiant : voit ses groupes et peut les quitter.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getSocket } from '../../socketConnection/socketConn';
@@ -74,7 +69,6 @@ const Groupes = () => {
   const bottomRef = useRef(null);
   const fileRef   = useRef(null);
 
-  /* ── États modal création ─────────────────────────────────── */
   const [showModal,        setShowModal]        = useState(false);
   const [step,             setStep]             = useState(1);
   const [formName,         setFormName]         = useState('');
@@ -84,22 +78,19 @@ const Groupes = () => {
   const [loadingStudents,  setLoadingStudents]  = useState(false);
   const [creating,         setCreating]         = useState(false);
 
-  /* ── États gestion des membres ────────────────────────────── */
-  const [membersModal,  setMembersModal]  = useState(null); // groupe géré
+  const [membersModal,  setMembersModal]  = useState(null); 
   const [members,       setMembers]       = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  /* ── Chargement des groupes ───────────────────────────────── */
   useEffect(() => {
     fetch(`${API}/groups`, { headers })
       .then((r) => r.json())
       .then((data) => setGroups(Array.isArray(data) ? data : []))
       .catch(() => {});
-  }, [token]); // eslint-disable-line
+  }, [token]);
 
-  /* ── Socket ───────────────────────────────────────────────── */
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -130,7 +121,6 @@ const Groupes = () => {
     if (activeGroup) socket?.emit('leave-group-chat', activeGroup.id);
     setActiveGroup(group);
     socket?.emit('join-group-chat', group.id);
-    // Charge l'historique du groupe depuis la base
     fetch(`${API}/chat/group/${group.id}`, { headers })
       .then((r) => r.json())
       .then((data) => {
@@ -164,7 +154,6 @@ const Groupes = () => {
       });
       const msg = await res.json();
       if (res.ok) {
-        // On ne l'ajoute pas localement : le broadcast nous le renvoie (évite les doublons)
         getSocket()?.emit('broadcast-group-file', { groupId: activeGroup.id, message: msg });
       }
     } finally {
@@ -177,7 +166,6 @@ const Groupes = () => {
     window.open(`${API}/chat/group/download/${msg.file_name}?token=${token}`, '_blank');
   };
 
-  /* ── Création groupe ──────────────────────────────────────── */
   const openModal = () => {
     setFormName(''); setFormFiliere('');
     setStudents([]); setSelectedMembers([]);
@@ -227,7 +215,6 @@ const Groupes = () => {
     }
   };
 
-  /* ── Étudiant : quitter un groupe ─────────────────────────── */
   const handleLeave = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Quitter ce groupe ?')) return;
@@ -238,7 +225,6 @@ const Groupes = () => {
     }
   };
 
-  /* ── Prof : gérer les membres ─────────────────────────────── */
   const openMembers = async (e, group) => {
     e.stopPropagation();
     setMembersModal(group);
@@ -267,7 +253,7 @@ const Groupes = () => {
   return (
     <div className={`groupes_page${activeGroup ? ' chat_open' : ''}`}>
 
-      {/* ── PANEL LISTE ─────────────────────────────────────── */}
+      {}
       <div className="groupes_list_panel">
         <div className="groupes_list_header">
           <h3>Mes Groupes</h3>
@@ -314,7 +300,7 @@ const Groupes = () => {
         ))}
       </div>
 
-      {/* ── PANEL CHAT ──────────────────────────────────────── */}
+      {}
       <div className="group_chat_panel">
         {activeGroup ? (
           <>
@@ -452,12 +438,12 @@ const Groupes = () => {
         )}
       </div>
 
-      {/* ── MODAL CRÉATION ──────────────────────────────────── */}
+      {}
       {showModal && (
         <div className="modal_overlay" onClick={() => setShowModal(false)}>
           <div className={`modal_box${step === 2 ? ' modal_box_wide' : ''}`} onClick={(e) => e.stopPropagation()}>
 
-            {/* Étape 1 : nom + filière */}
+            {}
             {step === 1 && (
               <>
                 <div className="modal_step_header">
@@ -489,7 +475,7 @@ const Groupes = () => {
               </>
             )}
 
-            {/* Étape 2 : sélection des membres */}
+            {}
             {step === 2 && (
               <>
                 <div className="modal_step_header">
@@ -545,7 +531,7 @@ const Groupes = () => {
         </div>
       )}
 
-      {/* ── MODAL GESTION DES MEMBRES ───────────────────────── */}
+      {}
       {membersModal && (
         <div className="modal_overlay" onClick={() => setMembersModal(null)}>
           <div className="modal_box modal_box_wide" onClick={(e) => e.stopPropagation()}>

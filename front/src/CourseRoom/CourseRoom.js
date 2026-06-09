@@ -1,10 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  SALLE DE COURS (CourseRoom) — l'écran plein de la visioconférence
-//  Assemble : la zone vidéo (VideoChat), le chat/fichiers à droite,
-//  la barre du haut, la file d'attente d'admission (prof) et le panneau
-//  participants coulissant (avec muter/expulser pour le prof).
-//  Gère l'état de la session (qui est connecté, qui demande à rejoindre).
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -24,9 +18,11 @@ import {
   onJoinRequestAccepted,
   onJoinRequestRejected,
   onParticipantsUpdate,
-  forceMuteStudent,
   kickFromVideo,
   onKickedFromVideo,
+  grantFloor,
+  removeFloor,
+  onFloorUpdate,
 } from '../socketConnection/socketConn';
 import VideoChat from './VideoChat';
 import TextChat from './TextChat';
@@ -91,10 +87,11 @@ const CourseRoom = () => {
   const [inVideoSession, setInVideoSession] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
-  const [joinStatus, setJoinStatus] = useState('idle'); // idle | pending | rejected
-  const [rightTab, setRightTab] = useState('chat'); // 'chat' | 'files'
+  const [joinStatus, setJoinStatus] = useState('idle'); 
+  const [rightTab, setRightTab] = useState('chat'); 
   const [mobileChat, setMobileChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [grantedIds, setGrantedIds] = useState([]); // étudiants ayant la parole (pour la liste)
 
   const isProfessor = user?.role === 'professor';
   const timerDisplay = useTimer(inVideoSession);
@@ -133,7 +130,6 @@ const CourseRoom = () => {
       setJoinStatus('idle');
     });
 
-    // Prof reçoit les demandes d'admission
     const unsubRequest = onStudentJoinRequest(({ studentSocketId, username }) => {
       setJoinRequests((prev) => {
         if (prev.find((r) => r.studentSocketId === studentSocketId)) return prev;
@@ -141,28 +137,35 @@ const CourseRoom = () => {
       });
     });
 
-    // Étudiant : accepté → rejoindre la vidéo
+   
     const unsubAccepted = onJoinRequestAccepted(({ professorSocketId: pId }) => {
       setJoinStatus('accepted');
       joinVideoSession(courseId, pId);
       setInVideoSession(true);
     });
 
-    // Étudiant : refusé
+    
     const unsubRejected = onJoinRequestRejected(() => {
       setJoinStatus('rejected');
     });
 
-    // Mise à jour liste participants
+  
     const unsubParticipants = onParticipantsUpdate((list) => {
       setParticipants(list);
     });
 
-    // Étudiant : expulsé de la session vidéo par le professeur
+   
     const unsubKicked = onKickedFromVideo(() => {
       setInVideoSession(false);
-      setJoinStatus('rejected'); // évite la re-admission automatique ; bouton "Redemander" dispo
+      setJoinStatus('rejected');
       window.alert('Vous avez été retiré de la session vidéo par le professeur.');
+    });
+
+    // Qui a la parole (pour afficher Interroger/Retirer dans la liste)
+    const unsubFloor = onFloorUpdate(({ socketId, granted }) => {
+      setGrantedIds(prev => granted
+        ? [...new Set([...prev, socketId])]
+        : prev.filter(id => id !== socketId));
     });
 
     return () => {
@@ -173,22 +176,20 @@ const CourseRoom = () => {
       unsubRejected?.();
       unsubParticipants?.();
       unsubKicked?.();
+      unsubFloor?.();
       dispatch(clearMessages());
       dispatch(setVideoSessionActive({ active: false, professorSocketId: null }));
     };
   }, [courseId, token]);
-
-  /* ── Actions prof : muter / expulser un étudiant ──────────── */
-  const handleMuteParticipant = (socketId) => {
-    forceMuteStudent(socketId);
-  };
+ 
+  const handleGrantFloor = (socketId) => grantFloor(courseId, socketId);
+  const handleRemoveFloor = (socketId) => removeFloor(courseId, socketId);
   const handleKickParticipant = (socketId, username) => {
     if (window.confirm(`Expulser ${username} de la session vidéo ?`)) {
       kickFromVideo(courseId, socketId);
     }
   };
 
-  // Étudiant : envoyer demande d'admission automatiquement quand session démarre
   useEffect(() => {
     if (!isProfessor && videoSessionActive && joinStatus === 'idle' && professorSocketId) {
       requestJoinVideo(courseId, professorSocketId);
@@ -310,9 +311,9 @@ const CourseRoom = () => {
           />
         </div>
 
-        {/* Panneau droit */}
+        {}
         <div className={`chat_section${mobileChat ? ' mobile_open' : ''}`}>
-          {/* Onglets Chat / Fichiers */}
+          {}
           <div className="right_tabs">
             <button
               className={`right_tab ${rightTab === 'chat' ? 'active' : ''}`}
@@ -335,7 +336,7 @@ const CourseRoom = () => {
           )}
         </div>
 
-        {/* Panneau participants coulissant (style Discord) */}
+        {}
         <div className={`room_online_panel${showParticipants ? ' open' : ''}`}>
           <div className="room_online_title">
             <span className="online_dot" /> Participants — {participants.length}
@@ -354,13 +355,23 @@ const CourseRoom = () => {
                 </div>
                 {isProfessor && p.role !== 'professor' && p.username !== user?.username && (
                   <div className="room_participant_actions">
-                    <button
-                      className="room_participant_btn mute"
-                      onClick={() => handleMuteParticipant(p.socketId)}
-                      title="Couper le micro"
-                    >
-                      <MicOffIcon />
-                    </button>
+                    {grantedIds.includes(p.socketId) ? (
+                      <button
+                        className="room_participant_btn floor active"
+                        onClick={() => handleRemoveFloor(p.socketId)}
+                        title="Retirer la parole"
+                      >
+                        Retirer
+                      </button>
+                    ) : (
+                      <button
+                        className="room_participant_btn floor"
+                        onClick={() => handleGrantFloor(p.socketId)}
+                        title="Interroger (activer sa cam et son micro)"
+                      >
+                        Interroger
+                      </button>
+                    )}
                     <button
                       className="room_participant_btn kick"
                       onClick={() => handleKickParticipant(p.socketId, p.username)}

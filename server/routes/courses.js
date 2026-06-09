@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES DES COURS
-//  Création / consultation / suppression des cours et devoirs.
-//  Colonne "type" : 'cours' ou 'devoir'.
-//  Colonne "is_live_session" : 1 = salle de visioconférence, 0 = cours classique.
-// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
@@ -16,7 +11,6 @@ router.get('/', verifyToken, async (req, res) => {
     const db = await getDb();
     let rows;
     if (req.user.role === 'student') {
-      // Étudiants : cours de leur filière ou cours sans restriction
       rows = await db.all(
         `SELECT c.*, u.username AS professor_name
          FROM courses c JOIN users u ON c.professor_id = u.id
@@ -25,7 +19,6 @@ router.get('/', verifyToken, async (req, res) => {
         [req.user.filiere || '']
       );
     } else if (req.user.role === 'professor') {
-      // Profs : leurs propres cours uniquement
       rows = await db.all(
         `SELECT c.*, u.username AS professor_name
          FROM courses c JOIN users u ON c.professor_id = u.id
@@ -34,7 +27,6 @@ router.get('/', verifyToken, async (req, res) => {
         [req.user.id]
       );
     } else {
-      // Admin : tous les cours
       rows = await db.all(
         `SELECT c.*, u.username AS professor_name
          FROM courses c JOIN users u ON c.professor_id = u.id
@@ -63,7 +55,6 @@ router.post('/', verifyToken, async (req, res) => {
     );
     const courseId = result.lastID;
 
-    // Notifier les étudiants de la filière si c'est un devoir
     if (courseType === 'devoir') {
       const filiereTarget = filiere || '';
       const students = await db.all(

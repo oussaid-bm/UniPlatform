@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE COURS & DEVOIRS
-//  Liste les cours (avec fichiers PDF) et les devoirs.
-//  Prof : crée des cours/devoirs, dépose des PDF, note les travaux rendus.
-//  Étudiant : consulte, télécharge les supports, dépose son travail (PDF).
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setCourses, addCourse, removeCourse } from '../../store/slices/coursesSlice';
@@ -13,7 +8,6 @@ import './CoursDevoirs.css';
 import API from '../../config';
 import { FILIERES } from '../../filieres';
 
-/* ── Icônes ─────────────────────────────────────────────────── */
 const PlusIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -62,7 +56,6 @@ const ChevronIcon = ({ open }) => (
 
 const formatDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/* ── Composant principal ─────────────────────────────────────── */
 const CoursDevoirs = () => {
   const dispatch = useDispatch();
   const { user, token } = useSelector((s) => s.auth);
@@ -72,7 +65,7 @@ const CoursDevoirs = () => {
   const [form,        setForm]        = useState({ title: '', description: '', type: 'cours', filiere: '' });
   const [creating,    setCreating]    = useState(false);
   const [openFilesId, setOpenFilesId] = useState(null);
-  const [filter,      setFilter]      = useState('tous'); // tous | cours | devoir
+  const [filter,      setFilter]      = useState('tous'); 
 
   const isProfessor = user?.role === 'professor';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -120,7 +113,7 @@ const CoursDevoirs = () => {
   return (
     <div className="cours_page">
 
-      {/* En-tête */}
+      {}
       <div className="cours_page_header">
         <div>
           <h2>Cours &amp; Devoirs</h2>
@@ -133,7 +126,7 @@ const CoursDevoirs = () => {
         )}
       </div>
 
-      {/* Filtres */}
+      {}
       <div className="cours_filters">
         {['tous', 'cours', 'devoir'].map(f => (
           <button key={f} className={`filter_btn ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
@@ -142,7 +135,7 @@ const CoursDevoirs = () => {
         ))}
       </div>
 
-      {/* Liste */}
+      {}
       <div className="cours_list">
         {displayed.length === 0 ? (
           <div className="cours_empty">
@@ -158,14 +151,14 @@ const CoursDevoirs = () => {
             return (
               <div className={`cours_item ${isOpen ? 'open' : ''}`} key={c.id}>
 
-                {/* Ligne principale de la carte */}
+                {}
                 <div className={`cours_card ${type}`}>
-                  {/* Icône type */}
+                  {}
                   <div className={`cours_type_icon ${type}`}>
                     {type === 'cours' ? <BookIcon /> : <TaskIcon />}
                   </div>
 
-                  {/* Infos */}
+                  {}
                   <div className="cours_info">
                     <div className="cours_title_row">
                       <span className="cours_title">{c.title}</span>
@@ -201,7 +194,7 @@ const CoursDevoirs = () => {
                   </div>
                 </div>
 
-                {/* Panneau fichiers (sous la carte, pleine largeur) */}
+                {}
                 {isOpen && (
                   <div className="cours_files_panel">
                     <FilePanel courseId={c.id} token={token} isProfessor={isOwner} />
@@ -216,7 +209,7 @@ const CoursDevoirs = () => {
         )}
       </div>
 
-      {/* Modal ajout cours */}
+      {}
       {showModal && (
         <div className="modal_overlay" onClick={() => setShowModal(false)}>
           <div className="modal_box" onClick={(e) => e.stopPropagation()}>

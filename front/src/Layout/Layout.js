@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  LAYOUT — la structure commune des pages internes
-//  Affiche la barre latérale (navigation) à gauche et la page active à droite.
-//  <Outlet /> = emplacement où React Router insère la page courante
-//  (Annonces, Cours, Groupes...). Le menu s'adapte au rôle (prof/étudiant).
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -88,7 +83,7 @@ const Layout = () => {
       <aside className="sidebar">
 
         <div className="sidebar_brand">
-          <div className="sidebar_logo"><GradCapIcon /></div>
+          <div className="sidebar_logo"><img src="/logo192.png" alt="UniPlatform" /></div>
           <div className="sidebar_brand_text">
             <div className="sidebar_brand_title">UniPlatform</div>
             <div className="sidebar_brand_sub">Plateforme universitaire</div>

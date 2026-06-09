@@ -1,21 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES DES DEMANDES
-//  Système de messagerie "administrative" : un étudiant ou un professeur envoie
-//  une demande à l'administration (avec un service) ou à un professeur précis.
-//  Le destinataire peut répondre (et modifier sa réponse).
-// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-/* ── GET /api/demandes ─────────────────────────────────────────
-   Étudiant  : ses propres demandes envoyées
-   Professeur:
-     - reçues des étudiants (section "étudiants")
-     - échanges avec d'autres profs (envoyées ou reçues, section "profs")
-─────────────────────────────────────────────────────────────── */
 router.get('/', verifyToken, async (req, res) => {
   try {
     const db = await getDb();
@@ -30,12 +19,12 @@ router.get('/', verifyToken, async (req, res) => {
     }
 
     if (role === 'professor') {
-      // Reçues des étudiants
+  
       const fromStudents = await db.all(
         `SELECT * FROM demandes WHERE recipient_id = ? AND sender_role = 'student' ORDER BY created_at DESC`,
         [id]
       );
-      // Échanges entre profs (envoyées OU reçues par ce prof)
+    
       const profExchanges = await db.all(
         `SELECT * FROM demandes
          WHERE (sender_id = ? OR recipient_id = ?) AND sender_role = 'professor'
@@ -45,7 +34,6 @@ router.get('/', verifyToken, async (req, res) => {
       return res.json({ fromStudents, profExchanges });
     }
 
-    // Admin : tout
     const rows = await db.all(`SELECT * FROM demandes ORDER BY created_at DESC`);
     res.json(rows);
   } catch (err) {
@@ -53,7 +41,6 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-/* ── POST /api/demandes ───────────────────────────────────────── */
 router.post('/', verifyToken, async (req, res) => {
   const { title, content, recipient_type, recipient_id, service } = req.body;
   if (!title?.trim() || !content?.trim()) {
@@ -88,9 +75,6 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-/* ── PATCH /api/demandes/:id ─────────────────────────────────────
-   Le destinataire met à jour le statut et optionnellement une réponse
-─────────────────────────────────────────────────────────────── */
 router.patch('/:id', verifyToken, async (req, res) => {
   const { status, response } = req.body;
   const allowed = ['en_attente', 'repondu', 'refuse'];
@@ -101,7 +85,6 @@ router.patch('/:id', verifyToken, async (req, res) => {
     const demande = await db.get('SELECT * FROM demandes WHERE id = ?', [req.params.id]);
     if (!demande) return res.status(404).json({ error: 'Demande introuvable.' });
 
-    // Seul le destinataire (prof) ou un admin peut répondre
     const canRespond =
       req.user.role === 'admin' ||
       (demande.recipient_id === req.user.id);
@@ -118,7 +101,6 @@ router.patch('/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ── DELETE /api/demandes/:id ────────────────────────────────── */
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const db = await getDb();

@@ -1,19 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ENVOI D'EMAILS (Nodemailer + Gmail)
-//  Ce fichier définit le "transporteur" (la connexion au serveur d'envoi Gmail)
-//  et toutes les fonctions qui composent et envoient un email HTML pour chaque
-//  événement : vérification de compte, cours en direct, nouveau devoir,
-//  fichier déposé, note attribuée, réinitialisation de mot de passe.
-// ─────────────────────────────────────────────────────────────────────────────
+
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-const APP_URL    = process.env.APP_URL    || 'http://localhost:3003'; // adresse publique de l'app (pour les liens)
-const EMAIL_USER = process.env.EMAIL_USER || ''; // adresse Gmail d'envoi
-const EMAIL_PASS = process.env.EMAIL_PASS || ''; // "mot de passe d'application" Gmail (pas le vrai mot de passe)
-
-// Le transporteur = la configuration de connexion au serveur d'envoi (SMTP) de Gmail.
-// Port 587 + STARTTLS : connexion chiffrée, port ouvert sur la plupart des réseaux.
+const APP_URL    = process.env.APP_URL    || 'http://localhost:3003';
+const EMAIL_USER = process.env.EMAIL_USER || ''; 
+const EMAIL_PASS = process.env.EMAIL_PASS || ''; 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
@@ -25,16 +16,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  IDENTITÉ VISUELLE (mêmes couleurs que le site)
-//  navy #1B2B4B · or #C8963E · crème #F2EDE4 · titres serif Georgia
-// ─────────────────────────────────────────────────────────────────────────────
 const NAVY  = '#1B2B4B';
 const GOLD  = '#C8963E';
 const CREAM = '#F2EDE4';
 const SERIF = "Georgia,'Times New Roman',serif";
 
-// Bouton d'action réutilisable (couleur navy par défaut, ou or).
 const button = (href, label, color = NAVY) => `
   <div style="text-align:center;margin:30px 0 8px;">
     <a href="${href}" style="display:inline-block;padding:14px 38px;background:${color};color:#ffffff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
@@ -42,15 +28,11 @@ const button = (href, label, color = NAVY) => `
     </a>
   </div>`;
 
-// Encart d'information (carte beige avec liseré or).
 const infoCard = (inner) => `
   <div style="background:${CREAM};border-radius:10px;padding:18px 20px;margin:24px 0;border-left:4px solid ${GOLD};">
     ${inner}
   </div>`;
 
-// Gabarit COMMUN à tous les emails : en-tête navy avec logo + nom, corps, pied de page.
-// `body`   : le contenu HTML propre à chaque email
-// `footer` : la petite phrase grise du bas
 function layout(title, subtitle, body, footer) {
   return `
   <div style="background:${CREAM};padding:28px 16px;font-family:'Segoe UI',Arial,sans-serif;">
@@ -58,7 +40,7 @@ function layout(title, subtitle, body, footer) {
 
       <!-- En-tête navy avec logo et nom de la plateforme -->
       <div style="background:${NAVY};padding:26px 28px;text-align:center;">
-        <div style="display:inline-block;width:46px;height:46px;background:${GOLD};border-radius:12px;line-height:46px;font-size:24px;"></div>
+        <img src="${APP_URL}/logo192.png" alt="UniPlatform" width="52" height="52" style="display:inline-block;border-radius:12px;" />
         <div style="color:#ffffff;font-family:${SERIF};font-size:24px;font-weight:800;margin-top:10px;letter-spacing:-0.3px;">UniPlatform</div>
         <div style="color:${GOLD};font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;margin-top:3px;">Plateforme universitaire</div>
       </div>
@@ -100,7 +82,6 @@ async function sendVerificationEmail(email, username, token) {
   console.log(`Email envoyé à ${email}`);
 }
 
-/* ── Notification cours en direct ───────────────────────────────────── */
 async function sendLiveSessionEmail(email, username, courseName, professorName, courseId) {
   const link = `${APP_URL}/app/cours/${courseId}`;
 
@@ -125,7 +106,6 @@ async function sendLiveSessionEmail(email, username, courseName, professorName, 
   });
 }
 
-/* ── Notification nouvelle annonce ──────────────────────────────────── */
 async function sendAnnouncementEmail(email, username, title, content, authorName) {
   const preview = content.length > 120 ? content.slice(0, 120) + '…' : content;
 
@@ -147,7 +127,6 @@ async function sendAnnouncementEmail(email, username, title, content, authorName
   });
 }
 
-/* ── Notification nouveau fichier déposé ────────────────────────────── */
 async function sendFileUploadEmail(email, username, fileName, courseName, authorName, courseId) {
   const link = `${APP_URL}/app/cours`;
 
@@ -173,7 +152,6 @@ async function sendFileUploadEmail(email, username, fileName, courseName, author
   });
 }
 
-/* ── Nouveau devoir publié ───────────────────────────────────────────── */
 async function sendNewDevoirEmail(email, username, devoirTitle, professorName) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
@@ -195,7 +173,6 @@ async function sendNewDevoirEmail(email, username, devoirTitle, professorName) {
   });
 }
 
-/* ── Travail rendu par un étudiant ──────────────────────────────────── */
 async function sendSubmissionEmail(email, professorName, studentName, devoirTitle) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
@@ -217,7 +194,6 @@ async function sendSubmissionEmail(email, professorName, studentName, devoirTitl
   });
 }
 
-/* ── Note attribuée à un étudiant ───────────────────────────────────── */
 async function sendGradeEmail(email, studentName, devoirTitle, grade, comment) {
   const gradeDisplay = grade !== null && grade !== undefined ? `${grade}/20` : 'Non notée';
   await transporter.sendMail({

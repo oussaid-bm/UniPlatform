@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  Liste centralisée des filières (spécialités) de l'université.
-//  Utilisée dans : inscription étudiant, création de cours/annonces/groupes.
-//  Centraliser ici évite de répéter la liste partout : on modifie à un seul endroit.
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const FILIERES = [
   'L1 Informatique',
   'L2 Informatique',

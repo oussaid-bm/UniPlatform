@@ -1,33 +1,23 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PONT SOCKET.IO (côté client)
-//  Ce fichier centralise TOUTE la communication temps réel avec le serveur.
-//  Chaque fonction "emit..." ENVOIE un message ; chaque "on..." ÉCOUTE un message.
-//  On garde UNE seule connexion (variable `socket`) partagée par toute l'app.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import io from 'socket.io-client';
 
-let socket = null; // la connexion unique (créée à la connexion de l'utilisateur)
+let socket = null;
 
-// Établit la connexion au serveur Socket.io après le login.
 export const connectWithSocketIOServer = (token) => {
-  if (socket) socket.disconnect(); // ferme une éventuelle ancienne connexion
-  // En production, le serveur est sur la même origine ; en dev, sur le port 3003.
+  if (socket) socket.disconnect(); 
   const serverUrl = process.env.NODE_ENV === 'production'
     ? window.location.origin
     : 'http://localhost:3003';
   socket = io(serverUrl);
 
-  // Dès que la connexion est établie, on envoie le token pour s'identifier.
   socket.on('connect', () => {
     console.log('Socket connecté:', socket.id);
     if (token) socket.emit('authenticate', token);
   });
 };
 
-// Permet aux composants de récupérer la connexion pour envoyer/écouter des événements.
 export const getSocket = () => socket;
 
-// ─── CHAT TEXTE ────────────────────────────────────────────────────────────────
 let chatMessageCallback = null;
 
 export const joinCourseChat = (courseId, onMessage) => {
@@ -48,7 +38,6 @@ export const sendMessage = (courseId, content) => {
   socket.emit('send-message', { courseId, content });
 };
 
-// ─── VIDÉO WEBRTC SIGNALING ────────────────────────────────────────────────────
 export const startVideoSession = (courseId) => {
   socket.emit('start-video-session', courseId);
 };
@@ -77,7 +66,6 @@ export const sendIceCandidate = (targetSocketId, candidate) => {
   socket.emit('ice-candidate', { targetSocketId, candidate });
 };
 
-// Event listeners — retournent une fonction de nettoyage
 export const onVideoSessionStarted = (cb) => {
   socket.on('video-session-started', cb);
   return () => socket.off('video-session-started', cb);
@@ -113,6 +101,30 @@ export const onPeerLeft = (cb) => {
   return () => socket.off('peer-left', cb);
 };
 
+export const onExistingPeers = (cb) => {
+  socket.on('existing-peers', cb);
+  return () => socket.off('existing-peers', cb);
+};
+ 
+export const grantFloor = (courseId, studentSocketId) => {
+  socket.emit('grant-floor', { courseId, studentSocketId });
+};
+export const removeFloor = (courseId, studentSocketId) => {
+  socket.emit('remove-floor', { courseId, studentSocketId });
+}; 
+export const onFloorGranted = (cb) => {
+  socket.on('floor-granted', cb);
+  return () => socket.off('floor-granted', cb);
+};
+export const onFloorRemoved = (cb) => {
+  socket.on('floor-removed', cb);
+  return () => socket.off('floor-removed', cb);
+}; 
+export const onFloorUpdate = (cb) => {
+  socket.on('floor-update', cb);
+  return () => socket.off('floor-update', cb);
+};
+
 export const requestJoinVideo = (courseId, professorSocketId) => {
   socket.emit('request-join-video', { courseId, professorSocketId });
 };
@@ -144,8 +156,7 @@ export const onParticipantsUpdate = (cb) => {
   socket.on('participants-update', cb);
   return () => socket.off('participants-update', cb);
 };
-
-// ─── CONTRÔLE DU MICRO ────────────────────────────────────────────────────
+ 
 
 export const raiseHand = (courseId, professorSocketId) => {
   socket.emit('raise-hand', { courseId, professorSocketId });
@@ -219,7 +230,6 @@ export const onStudentMicState = (cb) => {
   return () => socket.off('student-mic-state', cb);
 };
 
-// ─── PARTAGE D'ÉCRAN ──────────────────────────────────────────────────────
 export const emitScreenShareStarted = (courseId) => {
   socket.emit('screen-share-started', { courseId });
 };

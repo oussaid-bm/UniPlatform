@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  TEXTCHAT — le chat texte à l'intérieur d'une salle de cours
-//  Messages en temps réel (Socket.io) entre les participants du cours.
-//  L'historique est rechargé via l'API à l'ouverture de la salle.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addMessage, setMessages } from '../store/slices/chatSlice';

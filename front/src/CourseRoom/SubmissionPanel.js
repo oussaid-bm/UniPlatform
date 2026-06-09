@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  SUBMISSIONPANEL — remise et notation des devoirs
-//  Étudiant : dépose/remplace son PDF, voit sa note et le commentaire.
-//  Professeur : voit tous les travaux rendus, attribue une note /20 + commentaire.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
 
@@ -44,7 +40,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
   const [dragOver,     setDragOver]     = useState(false);
   const [error,        setError]        = useState('');
   const [success,      setSuccess]      = useState('');
-  const [gradingId,    setGradingId]    = useState(null);  // id de la soumission en cours de notation
+  const [gradingId,    setGradingId]    = useState(null);
   const [gradeVal,     setGradeVal]     = useState('');
   const [gradeComment, setGradeComment] = useState('');
   const [gradingBusy,  setGradingBusy]  = useState(false);
@@ -157,7 +153,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
       {error   && <div className="file_msg error">{error}</div>}
       {success && <div className="file_msg success">{success}</div>}
 
-      {/* ÉTUDIANT : zone de dépôt */}
+      {}
       {!isProfessor && (
         <>
           {mySubmission ? (
@@ -203,7 +199,7 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
         </>
       )}
 
-      {/* PROFESSEUR : liste de toutes les soumissions */}
+      {}
       {isProfessor && (
         <div className="sub_list">
           {loading ? (

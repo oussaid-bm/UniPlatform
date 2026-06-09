@@ -1,12 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  FILEPANEL — panneau "Fichiers" dans la salle de cours
-//  Le professeur dépose des PDF (supports de cours) ; tout le monde les télécharge.
-//  Glisser-déposer ou clic ; affiche la liste avec taille et auteur.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
 
-/* ── Icônes ─────────────────────────────────────────────────────────────── */
 const PdfIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -42,7 +37,6 @@ const UploadIcon = () => (
   </svg>
 );
 
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
 const formatSize = (bytes) => {
   if (bytes < 1024) return `${bytes} o`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
@@ -54,7 +48,6 @@ const formatDate = (iso) => {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-/* ── Composant principal ─────────────────────────────────────────────────── */
 const FilePanel = ({ courseId, token, isProfessor }) => {
   const [files,     setFiles]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -64,7 +57,6 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
   const [success,   setSuccess]   = useState('');
   const inputRef = useRef(null);
 
-  /* ── Chargement de la liste ─────────────────────────────────────────── */
   const fetchFiles = useCallback(async () => {
     try {
       setLoading(true);
@@ -82,7 +74,6 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
-  /* ── Upload ─────────────────────────────────────────────────────────── */
   const uploadFile = async (file) => {
     if (!file) return;
     if (file.type !== 'application/pdf') {
@@ -121,7 +112,6 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
     e.target.value = '';
   };
 
-  /* ── Drag & drop ─────────────────────────────────────────────────────── */
   const handleDragOver  = (e) => { e.preventDefault(); setDragOver(true); };
   const handleDragLeave = ()  => setDragOver(false);
   const handleDrop      = (e) => {
@@ -131,14 +121,12 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
     if (file) uploadFile(file);
   };
 
-  /* ── Téléchargement ─────────────────────────────────────────────────── */
   const handleDownload = (file) => {
     const url = `${API}/files/download/${file.id}`;
     const a   = document.createElement('a');
     a.href    = url;
     a.setAttribute('download', file.original_name);
 
-    // Ajouter l'auth via fetch + blob pour éviter le blocage CORS
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob())
       .then(blob => {
@@ -152,7 +140,6 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
       .catch(() => setError('Erreur lors du téléchargement.'));
   };
 
-  /* ── Suppression ────────────────────────────────────────────────────── */
   const handleDelete = async (file) => {
     if (!window.confirm(`Supprimer "${file.original_name}" ?`)) return;
     try {
@@ -169,11 +156,10 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
     }
   };
 
-  /* ── Rendu ──────────────────────────────────────────────────────────── */
   return (
     <div className="file_panel">
 
-      {/* Zone de dépôt (prof uniquement) */}
+      {}
       {isProfessor && (
         <div
           className={`file_drop_zone ${dragOver ? 'drag_over' : ''} ${uploading ? 'uploading' : ''}`}
@@ -204,11 +190,11 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
         </div>
       )}
 
-      {/* Messages */}
+      {}
       {error   && <div className="file_msg error">{error}</div>}
       {success && <div className="file_msg success">{success}</div>}
 
-      {/* Liste des fichiers */}
+      {}
       <div className="file_list">
         {loading ? (
           <div className="file_empty"><div className="file_spinner" /></div>

@@ -1,10 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE DEMANDES
-//  Envoi de demandes à l'administration (avec choix du service) ou à un professeur.
-//  Étudiant : voit ses demandes envoyées.
-//  Professeur : deux onglets — demandes reçues des étudiants, et échanges entre profs.
-//  Le destinataire peut répondre (et modifier sa réponse).
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import API from '../../config';
@@ -13,19 +7,6 @@ import './Demandes.css';
 const SendIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-  </svg>
-);
-const AdminIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="7" width="20" height="14" rx="2"/>
-    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-  </svg>
-);
-const ProfIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
-    <path d="M12 11v4M10 13h4"/>
   </svg>
 );
 const UserIcon = () => (
@@ -60,19 +41,9 @@ const ReplyIcon = () => (
 
 const STATUS_LABELS = { repondu: 'Répondu', en_attente: 'En attente', refuse: 'Refusé' };
 
-const SERVICES_ADMIN = [
-  'Scolarité',
-  'Direction',
-  'Bibliothèque',
-  'Service des examens',
-  'Service financier',
-  'Ressources humaines',
-];
-
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/* ── Carte demande ── définie en dehors pour éviter le re-mount ──── */
 const DemandeCard = ({ d, canReply, showSender, currentUserId, onReply, onDelete }) => (
   <div className={`demande_card ${d.status}`}>
     <div className="demande_card_header">
@@ -111,7 +82,6 @@ const DemandeCard = ({ d, canReply, showSender, currentUserId, onReply, onDelete
   </div>
 );
 
-/* ── Composant principal ─────────────────────────────────────────── */
 const Demandes = () => {
   const { user, token } = useSelector((s) => s.auth);
   const isProfessor = user?.role === 'professor';
@@ -121,16 +91,12 @@ const Demandes = () => {
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState('students');
 
-  /* ── État modal création ──────────────────────────────────────── */
   const [showModal,      setShowModal]      = useState(false);
   const [formTitle,      setFormTitle]      = useState('');
   const [formContent,    setFormContent]    = useState('');
-  const [formRecipType,  setFormRecipType]  = useState('admin');
   const [formRecipId,    setFormRecipId]    = useState('');
-  const [formService,    setFormService]    = useState('');
   const [sending,        setSending]        = useState(false);
 
-  /* ── État modal réponse ───────────────────────────────────────── */
   const [replyModal,    setReplyModal]    = useState(null);
   const [replyStatus,   setReplyStatus]   = useState('repondu');
   const [replyResponse, setReplyResponse] = useState('');
@@ -149,14 +115,12 @@ const Demandes = () => {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]); // eslint-disable-line
+  }, [token]); 
 
   const openCreate = () => {
     setFormTitle('');
     setFormContent('');
-    setFormRecipType('admin');
     setFormRecipId('');
-    setFormService('');
     setShowModal(true);
   };
 
@@ -167,9 +131,8 @@ const Demandes = () => {
       const body = {
         title: formTitle,
         content: formContent,
-        recipient_type: formRecipType,
-        recipient_id: formRecipType === 'professor' ? formRecipId : undefined,
-        service: formRecipType === 'admin' ? formService : undefined,
+        recipient_type: 'professor',
+        recipient_id: formRecipId,
       };
       const res  = await fetch(`${API}/demandes`, { method: 'POST', headers, body: JSON.stringify(body) });
       const data = await res.json();
@@ -232,14 +195,12 @@ const Demandes = () => {
 
   if (loading) return <div className="demandes_page"><p style={{ color: '#7A7060' }}>Chargement...</p></div>;
 
-  /* ── VUE PROFESSEUR ─────────────────────────────────────────────── */
   if (isProfessor) {
     const fromStudents    = demandes?.fromStudents  || [];
     const profExchanges   = demandes?.profExchanges || [];
     const pendingStudents = fromStudents.filter((d) => d.status === 'en_attente').length;
     const pendingProfs    = profExchanges.filter((d) => d.status === 'en_attente' && d.recipient_id === user?.id).length;
-    const canSend = formTitle.trim() && formContent.trim() &&
-      (formRecipType === 'professor' ? !!formRecipId : !!formService);
+    const canSend = formTitle.trim() && formContent.trim() && !!formRecipId;
 
     return (
       <div className="demandes_page">
@@ -287,7 +248,7 @@ const Demandes = () => {
           </div>
         )}
 
-        {/* Modal création (prof) */}
+        {}
         {showModal && (
           <div className="modal_overlay" onClick={() => setShowModal(false)}>
             <div className="modal_box" onClick={(e) => e.stopPropagation()}>
@@ -298,39 +259,13 @@ const Demandes = () => {
                 onChange={(e) => setFormTitle(e.target.value)}
                 autoFocus
               />
-              <div className="service_label">Destinataire</div>
-              <div className="service_selector">
-                <button
-                  type="button"
-                  className={`service_btn ${formRecipType === 'admin' ? 'active' : ''}`}
-                  onClick={() => { setFormRecipType('admin'); setFormRecipId(''); setFormService(''); }}
-                >
-                  <AdminIcon /> Administration
-                </button>
-                <button
-                  type="button"
-                  className={`service_btn ${formRecipType === 'professor' ? 'active' : ''}`}
-                  onClick={() => { setFormRecipType('professor'); setFormRecipId(''); setFormService(''); }}
-                >
-                  <ProfIcon /> Professeur
-                </button>
-              </div>
-              {formRecipType === 'admin' && (
-                <select value={formService} onChange={(e) => setFormService(e.target.value)}>
-                  <option value="">— Choisir un service —</option>
-                  {SERVICES_ADMIN.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              )}
-              {formRecipType === 'professor' && (
-                <select value={formRecipId} onChange={(e) => setFormRecipId(e.target.value)}>
-                  <option value="">— Choisir un collègue —</option>
-                  {professors.filter((p) => p.id !== user?.id).map((p) => (
-                    <option key={p.id} value={p.id}>{p.username}</option>
-                  ))}
-                </select>
-              )}
+              <div className="service_label">Destinataire (professeur)</div>
+              <select value={formRecipId} onChange={(e) => setFormRecipId(e.target.value)}>
+                <option value="">— Choisir un collègue —</option>
+                {professors.filter((p) => p.id !== user?.id).map((p) => (
+                  <option key={p.id} value={p.id}>{p.username}</option>
+                ))}
+              </select>
               <textarea
                 rows={4}
                 placeholder="Votre message *"
@@ -347,7 +282,7 @@ const Demandes = () => {
           </div>
         )}
 
-        {/* Modal réponse */}
+        {}
         {replyModal && (
           <div className="modal_overlay" onClick={() => setReplyModal(null)}>
             <div className="modal_box" onClick={(e) => e.stopPropagation()}>
@@ -377,17 +312,15 @@ const Demandes = () => {
     );
   }
 
-  /* ── VUE ÉTUDIANT / ADMIN ──────────────────────────────────────── */
   const myDemandes = Array.isArray(demandes) ? demandes : [];
-  const canSendStudent = formTitle.trim() && formContent.trim() &&
-    (formRecipType === 'professor' ? !!formRecipId : !!formService);
+  const canSendStudent = formTitle.trim() && formContent.trim() && !!formRecipId;
 
   return (
     <div className="demandes_page">
       <div className="demandes_header">
         <div>
           <h2>Mes Demandes</h2>
-          <p>Envoyez des demandes à l'administration ou à vos professeurs</p>
+          <p>Envoyez des demandes à vos professeurs</p>
         </div>
         <button className="new_demande_btn" onClick={openCreate}>
           <SendIcon /> Nouvelle demande
@@ -403,7 +336,7 @@ const Demandes = () => {
         ))}
       </div>
 
-      {/* Modal création (étudiant) */}
+      {}
       {showModal && (
         <div className="modal_overlay" onClick={() => setShowModal(false)}>
           <div className="modal_box" onClick={(e) => e.stopPropagation()}>
@@ -414,39 +347,13 @@ const Demandes = () => {
               onChange={(e) => setFormTitle(e.target.value)}
               autoFocus
             />
-            <div className="service_label">Destinataire</div>
-            <div className="service_selector">
-              <button
-                type="button"
-                className={`service_btn ${formRecipType === 'admin' ? 'active' : ''}`}
-                onClick={() => { setFormRecipType('admin'); setFormRecipId(''); setFormService(''); }}
-              >
-                <AdminIcon /> Administration
-              </button>
-              <button
-                type="button"
-                className={`service_btn ${formRecipType === 'professor' ? 'active' : ''}`}
-                onClick={() => { setFormRecipType('professor'); setFormRecipId(''); setFormService(''); }}
-              >
-                <ProfIcon /> Professeur
-              </button>
-            </div>
-            {formRecipType === 'admin' && (
-              <select value={formService} onChange={(e) => setFormService(e.target.value)}>
-                <option value="">— Choisir un service —</option>
-                {SERVICES_ADMIN.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            )}
-            {formRecipType === 'professor' && (
-              <select value={formRecipId} onChange={(e) => setFormRecipId(e.target.value)}>
-                <option value="">— Choisir un professeur —</option>
-                {professors.map((p) => (
-                  <option key={p.id} value={p.id}>{p.username}</option>
-                ))}
-              </select>
-            )}
+            <div className="service_label">Destinataire (professeur)</div>
+            <select value={formRecipId} onChange={(e) => setFormRecipId(e.target.value)}>
+              <option value="">— Choisir un professeur —</option>
+              {professors.map((p) => (
+                <option key={p.id} value={p.id}>{p.username}</option>
+              ))}
+            </select>
             <textarea
               rows={4}
               placeholder="Votre message *"

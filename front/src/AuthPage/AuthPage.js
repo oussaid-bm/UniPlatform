@@ -1,12 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE D'AUTHENTIFICATION
-//  Gère 4 vues dans un seul composant (variable `view`) :
-//   - 'login'    : connexion
-//   - 'register' : inscription (avec choix du rôle et de la filière)
-//   - 'forgot'   : demande de réinitialisation du mot de passe
-//   - 'reset'    : saisie du nouveau mot de passe (via le lien reçu par email)
-//  Après connexion réussie : stocke le token (Redux) et ouvre la connexion Socket.io.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +8,6 @@ import { FILIERES } from '../filieres';
 import API from '../config';
 import './AuthPage.css';
 
-/* ─── Icons ──────────────────────────────────────────────────────────── */
 const GradCapIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" />
@@ -52,9 +43,7 @@ const ROLES = [
   { key: 'professor', label: 'Professeur' },
 ];
 
-/* ─── Composant principal ────────────────────────────────────────────── */
-const AuthPage = () => {
-  // view: 'login' | 'register' | 'forgot' | 'reset'
+const AuthPage = () => { 
   const [view,       setView]       = useState('login');
   const [role,       setRole]       = useState('student');
   const [form,       setForm]       = useState({ username: '', email: '', password: '', filiere: '' });
@@ -62,14 +51,12 @@ const AuthPage = () => {
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [resendStatus,    setResendStatus]    = useState('');
 
-  /* ── États "mot de passe oublié" ─────────────────────── */
   const [forgotEmail,  setForgotEmail]  = useState('');
   const [forgotMsg,    setForgotMsg]    = useState('');
   const [forgotErr,    setForgotErr]    = useState('');
   const [forgotLoading,setForgotLoading]= useState(false);
   const [devResetLink, setDevResetLink] = useState('');
 
-  /* ── États "réinitialisation" ────────────────────────── */
   const [resetToken,   setResetToken]   = useState('');
   const [resetPwd,     setResetPwd]     = useState('');
   const [resetPwd2,    setResetPwd2]    = useState('');
@@ -97,16 +84,13 @@ const AuthPage = () => {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  /* ── Validation email ────────────────────────────────────── */
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  /* ── Login / Register ─────────────────────────────────── */
   const handleSubmit = async (e) => {
     e.preventDefault();
     dispatch(setError(null));
     setSuccessMsg('');
 
-    // Validation email format côté client
     if (!isValidEmail(form.email)) {
       dispatch(setError('Adresse email invalide. Vérifiez le format (ex : nom@domaine.com)'));
       return;
@@ -170,8 +154,7 @@ const AuthPage = () => {
       setResendStatus('error');
     }
   };
-
-  /* ── Mot de passe oublié ──────────────────────────────── */
+ 
   const handleForgot = async (e) => {
     e.preventDefault();
     setForgotErr(''); setForgotMsg(''); setDevResetLink('');
@@ -194,7 +177,6 @@ const AuthPage = () => {
     }
   };
 
-  /* ── Réinitialisation mot de passe ───────────────────── */
   const handleReset = async (e) => {
     e.preventDefault();
     setResetErr(''); setResetMsg('');
@@ -233,13 +215,13 @@ const AuthPage = () => {
     <div className="auth_page">
       <div className="auth_center">
 
-        {/* Logo + Titre */}
-        <div className="auth_logo"><GradCapIcon /></div>
+        {}
+        <div className="auth_logo"><img src="/logo192.png" alt="UniPlatform" /></div>
         <div className="auth_brand_name">UniPlatform</div>
         <div className="auth_brand_sub">PLATEFORME UNIVERSITAIRE</div>
         <div className="auth_tagline">Connectez-vous à votre espace académique</div>
 
-        {/* ── VUE MOT DE PASSE OUBLIÉ ─────────────────────── */}
+        {}
         {view === 'forgot' && (
           <div className="auth_card">
             <h2 className="auth_form_title">Mot de passe oublié</h2>
@@ -281,7 +263,7 @@ const AuthPage = () => {
           </div>
         )}
 
-        {/* ── VUE RÉINITIALISATION ─────────────────────────── */}
+        {}
         {view === 'reset' && (
           <div className="auth_card">
             <h2 className="auth_form_title">Nouveau mot de passe</h2>
@@ -324,7 +306,7 @@ const AuthPage = () => {
           </div>
         )}
 
-        {/* ── VUE LOGIN / REGISTER ─────────────────────────── */}
+        {}
         {(view === 'login' || view === 'register') && (
           <div className="auth_card">
             <h2 className="auth_form_title">

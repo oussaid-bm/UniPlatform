@@ -1,31 +1,16 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  BASE DE DONNÉES (MySQL)
-//  Ce fichier : ouvre un "pool" de connexions MySQL, crée les tables si elles
-//  n'existent pas, et expose une petite couche de compatibilité (get/all/run/exec)
-//  pour que le reste du code (les routes) n'ait pas besoin d'être modifié.
-//
-//  Wrapper de compatibilité :
-//    db.get(sql, params)  → retourne UNE ligne (ou undefined)
-//    db.all(sql, params)  → retourne un TABLEAU de lignes
-//    db.run(sql, params)  → exécute INSERT/UPDATE/DELETE
-//                           et retourne { lastID, changes } (comme SQLite)
-//    db.exec(sql)         → exécute une requête brute (création de table)
-// ─────────────────────────────────────────────────────────────────────────────
+
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 
-// Paramètres de connexion (lus depuis le fichier .env)
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = process.env.DB_PORT || 3306;
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASS = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'uniplatform';
 
-let dbWrapper; // singleton : on garde UNE seule instance partagée
+let dbWrapper;
 
-// Crée la base de données si elle n'existe pas encore, puis le pool de connexions.
 async function createPool() {
-  // 1) Connexion temporaire SANS base pour pouvoir la créer si besoin
   const root = await mysql.createConnection({
     host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
   });
@@ -34,7 +19,6 @@ async function createPool() {
   );
   await root.end();
 
-  // 2) Pool de connexions vers la base (réutilise les connexions, plus efficace)
   return mysql.createPool({
     host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
     database: DB_NAME,
@@ -44,17 +28,15 @@ async function createPool() {
   });
 }
 
-// getDb() : au premier appel crée tout ; ensuite réutilise l'instance.
 const getDb = async () => {
   if (dbWrapper) return dbWrapper;
 
   const pool = await createPool();
 
-  // ── Couche de compatibilité (imite l'API du wrapper SQLite) ──
   dbWrapper = {
     async get(sql, params = []) {
       const [rows] = await pool.query(sql, params);
-      return rows[0]; // première ligne ou undefined
+      return rows[0]; 
     },
     async all(sql, params = []) {
       const [rows] = await pool.query(sql, params);
@@ -62,7 +44,6 @@ const getDb = async () => {
     },
     async run(sql, params = []) {
       const [result] = await pool.query(sql, params);
-      // SQLite renvoyait lastID/changes → on les recrée depuis MySQL
       return { lastID: result.insertId, changes: result.affectedRows };
     },
     async exec(sql) {
@@ -70,10 +51,6 @@ const getDb = async () => {
     },
   };
 
-  // ── CRÉATION DES TABLES ──
-  // En MySQL il faut créer les tables dans l'ordre (les clés étrangères
-  // référencent des tables qui doivent déjà exister). On exécute chaque
-  // CREATE séparément (mysql2 n'autorise qu'une requête à la fois par défaut).
   const tables = [
     `CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -216,11 +193,9 @@ const getDb = async () => {
     await pool.query(sql);
   }
 
-  // Migration : ajoute la colonne filiere à global_messages si la table existait déjà.
-  // (le try/catch ignore l'erreur "Duplicate column" si la colonne est déjà présente)
   try {
     await pool.query("ALTER TABLE global_messages ADD COLUMN filiere VARCHAR(255) DEFAULT ''");
-  } catch (e) { /* colonne déjà présente → on ignore */ }
+  } catch (e) { }
 
   console.log(`Base MySQL "${DB_NAME}" prête (${tables.length} tables).`);
   return dbWrapper;

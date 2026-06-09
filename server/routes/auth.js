@@ -1,18 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  ROUTES D'AUTHENTIFICATION
-//  Inscription, connexion, vérification email, mot de passe oublié/réinitialisé.
-//  Sécurité : mots de passe hachés (bcrypt), jetons signés (jwt),
-//  jetons aléatoires (crypto), vérification du domaine email (dns/MX).
-// ─────────────────────────────────────────────────────────────────────────────
+
 require('dotenv').config();
 const express  = require('express');
-const bcrypt   = require('bcryptjs');         // hachage des mots de passe (sens unique)
-const jwt      = require('jsonwebtoken');     // création/vérification des jetons de session
-const crypto   = require('crypto');           // génération de jetons aléatoires (vérif. email, reset)
-const dns      = require('dns').promises;     // vérifie qu'un domaine email existe (enregistrement MX)
+const bcrypt   = require('bcryptjs');         
+const jwt      = require('jsonwebtoken');     
+const crypto   = require('crypto');         
+const dns      = require('dns').promises;     
 const { getDb }                    = require('../db');
 const { sendVerificationEmail }    = require('../email');
-const { scheduleBounceCheck }      = require('../bounceChecker');
 
 const router     = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
@@ -62,16 +56,12 @@ router.post('/register', async (req, res) => {
       console.error('Erreur envoi email:', err.message)
     );
 
-    // Vérification rebond : supprime le compte si Gmail renvoie "Address not found"
-    scheduleBounceCheck(email, result.lastID);
-
     const APP_URL = process.env.APP_URL || 'http://localhost:3003';
     const isDevMode = !process.env.EMAIL_USER || process.env.EMAIL_USER.includes('votre.email');
 
     res.status(201).json({
       message: 'Compte créé. Vérifiez votre email pour activer votre compte.',
       userId: result.lastID,
-      // En mode dev uniquement : renvoie le lien pour que le frontend l'affiche
       devVerifyLink: isDevMode ? `${APP_URL}/api/auth/verify-email?token=${token}` : undefined,
     });
   } catch (err) {
@@ -81,7 +71,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-/* ── VÉRIFICATION EMAIL ──────────────────────────────────────────────── */
 router.get('/verify-email', async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).json({ error: 'Token manquant.' });
@@ -110,7 +99,6 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-/* ── RENVOYER L'EMAIL DE VÉRIFICATION ───────────────────────────────── */
 router.post('/resend-verification', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requis.' });
@@ -140,7 +128,6 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-/* ── CONNEXION ───────────────────────────────────────────────────────── */
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
@@ -172,7 +159,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/* ── MOT DE PASSE OUBLIÉ ─────────────────────────────────────────────── */
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requis.' });
@@ -182,10 +168,10 @@ router.post('/forgot-password', async (req, res) => {
     const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
     const ok   = { message: 'Si cet email existe, un lien de réinitialisation vous a été envoyé.' };
 
-    if (!user) return res.json(ok); // ne révèle pas si l'email existe
+    if (!user) return res.json(ok); 
 
     const token   = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 h
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); 
 
     await db.run(
       'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
@@ -209,7 +195,6 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-/* ── RÉINITIALISATION MOT DE PASSE ───────────────────────────────────── */
 router.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis.' });
@@ -235,7 +220,6 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-/* ── VÉRIFICATION STATUT COMPTE (pour feedback bounce) ─────────────── */
 router.get('/account-status', async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: 'Email requis.' });
@@ -249,7 +233,6 @@ router.get('/account-status', async (req, res) => {
   }
 });
 
-/* ── LISTE DES PROFESSEURS ──────────────────────────────────────────── */
 const { verifyToken } = require('../middleware/auth');
 router.get('/professors', verifyToken, async (req, res) => {
   try {
@@ -264,7 +247,6 @@ router.get('/professors', verifyToken, async (req, res) => {
   }
 });
 
-/* ── Helper : page HTML d'erreur ─────────────────────────────────────── */
 function htmlPage(title, message, success) {
   const color = success ? '#059669' : '#DC2626';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>

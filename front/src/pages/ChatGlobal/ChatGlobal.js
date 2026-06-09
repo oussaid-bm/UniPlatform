@@ -1,10 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  PAGE CHAT GLOBAL
-//  Messagerie instantanée de toute l'université (temps réel via Socket.io).
-//  Fonctions : messages texte, partage de fichiers, et panneau coulissant
-//  listant les utilisateurs en ligne (style Discord).
-//  L'historique est chargé depuis l'API ; les nouveaux messages arrivent en direct.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getSocket } from '../../socketConnection/socketConn';
@@ -59,7 +53,6 @@ const ChatGlobal = () => {
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
-  // Charger l'historique depuis la base de données
   useEffect(() => {
     if (!token) return;
     fetch(`${API}/chat/global`, {
@@ -115,7 +108,6 @@ const ChatGlobal = () => {
       });
       const msg = await res.json();
       if (res.ok) {
-        // On ne l'ajoute pas localement : le broadcast nous le renvoie (évite les doublons)
         getSocket()?.emit('broadcast-global-file', { message: msg });
       }
     } finally {

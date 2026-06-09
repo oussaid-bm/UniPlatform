@@ -71,7 +71,6 @@
   border-left: 3px solid #D5CEC4;
 }
 
-/* ── TABS ──────────────────────────────────────────────────────── */
 .demandes_tabs {
   display: flex; gap: 4px;
   background: #EAE4DA; border-radius: 12px;
@@ -95,7 +94,6 @@
   line-height: 1.4;
 }
 
-/* ── ACTIONS / RÉPONSE ─────────────────────────────────────────── */
 .demande_card_actions {
   display: flex; gap: 8px; margin-top: 12px;
 }
@@ -122,7 +120,6 @@
 }
 .demande_response_label { font-weight: 700; margin-right: 4px; }
 
-/* ── EMPTY STATE ───────────────────────────────────────────────── */
 .demandes_empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 48px 20px; gap: 12px;
@@ -138,7 +135,6 @@
   .new_demande_btn { align-self: flex-end; }
 }
 
-/* ── SERVICE SELECTOR ──────────────────────────────────────────── */
 .service_label {
   font-size: 11px; font-weight: 700; color: #7A7060;
   text-transform: uppercase; letter-spacing: 0.07em;
@@ -171,7 +167,6 @@
 .admin_service_chip:hover { background: #EAE4DA; color: #1B2B4B; border-color: #C8B89A; }
 .admin_service_chip.active { background: #C8963E; color: #fff; border-color: #C8963E; }
 
-/* Modal */
 .modal_overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.35);
