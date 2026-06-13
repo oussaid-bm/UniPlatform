@@ -1,0 +1,5 @@
+general: {
+  admin_key = "supersecret"
+  events = true
+  string_ids = true
+}

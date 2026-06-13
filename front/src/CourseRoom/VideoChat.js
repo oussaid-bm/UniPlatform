@@ -3,43 +3,17 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import {
   getSocket,
-  onWebRTCOffer, onWebRTCAnswer, onIceCandidate, onPeerLeft,
-  onExistingPeers,
-  sendWebRTCOffer, sendWebRTCAnswer, sendIceCandidate,
+  onPeerLeft,
   emitScreenShareStarted, emitScreenShareStopped,
   onScreenShareStarted, onScreenShareStopped,
   raiseHand, lowerHand,
-  onHandRaised, onHandLowered,
-  grantFloor, removeFloor,
+  grantFloor,
   onFloorGranted, onFloorRemoved, onFloorUpdate,
+  onHandRaised, onHandLowered,
   onKickedFromVideo,
+  onJanusRoomInfo,
 } from '../socketConnection/socketConn'; 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    { urls: 'stun:stun.l.google.com:19302' },
-    {
-      urls: 'turn:global.relay.metered.ca:80',
-      username: 'ed5f9fd343f6092b3dcc81d7',
-      credential: 'km71W6e3w0iXGk21',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: 'ed5f9fd343f6092b3dcc81d7',
-      credential: 'km71W6e3w0iXGk21',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:443',
-      username: 'ed5f9fd343f6092b3dcc81d7',
-      credential: 'km71W6e3w0iXGk21',
-    },
-    {
-      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: 'ed5f9fd343f6092b3dcc81d7',
-      credential: 'km71W6e3w0iXGk21',
-    },
-  ],
-};
+import useJanus from './useJanus';
 
 const AVATAR_COLORS = ['#4F46E5', '#7C3AED', '#DB2777', '#0891B2', '#059669', '#D97706'];
 const colorFor    = (n = '') => AVATAR_COLORS[(n || '').charCodeAt(0) % AVATAR_COLORS.length];
@@ -63,20 +37,19 @@ const VideoChat = ({
   courseId, videoSessionActive, inVideoSession, isProfessor,
   joinStatus, participants, professorSocketId,
   onStartSession, onEndSession, onLeaveVideo, onRetryJoin, onBack,
+  janusRoomId: initialJanusRoomId, janusWsUrl: initialJanusWsUrl,
 }) => {
   const { user } = useSelector(s => s.auth);
 
   const localStreamRef  = useRef(null);
   const screenStreamRef = useRef(null);
   const localVideoRef   = useRef(null);
-  const peersRef        = useRef({});
-  const iceQueues       = useRef({});
   const mediaPromiseRef = useRef(null); 
 
-  const [remoteStreams,    setRemoteStreams]    = useState({});
+  const [remoteFeeds,     setRemoteFeeds]     = useState({});  // feedId → { stream, display }
   const [localStream,     setLocalStream]      = useState(null);
   const [micMuted,        setMicMuted]         = useState(true);   
-  const [micLocked,       setMicLocked]        = useState(true);   
+  const [, setMicLocked]        = useState(true);   // eslint-disable-line no-unused-vars
   const [camOff,          setCamOff]           = useState(false);
   const [isSharing,       setIsSharing]        = useState(false);
   const [mediaError,      setMediaError]       = useState('');
@@ -85,28 +58,23 @@ const VideoChat = ({
   const [handRaised,   setHandRaised]   = useState(false);
   const [handStatus,   setHandStatus]   = useState('idle');
 
-  const [handRequests,  setHandRequests]  = useState([]);   // (prof) demandes de parole en attente
-  const [grantedIds,    setGrantedIds]    = useState([]);   // socketIds des étudiants ayant la parole
-  const [amGranted,     setAmGranted]     = useState(false);// (étudiant) ai-je la parole ?
-  const myId = getSocket()?.id;
+  const [handRequests,  setHandRequests]  = useState([]);
+  const [grantedIds,    setGrantedIds]    = useState([]);
+  const [amGranted,     setAmGranted]     = useState(false);
 
-  
+  const [janusRoomId, setJanusRoomId]  = useState(initialJanusRoomId || null);
+  const [janusWsUrl, setJanusWsUrl]    = useState(initialJanusWsUrl || null);
+
+  const myId = getSocket()?.id;
+  const janus = useJanus();
+  const janusConnectedRef = useRef(false);
+
   const usernameFor = sid => {
     const p = (participants || []).find(p => p.socketId === sid);
     if (p) return `${p.username}${p.role === 'professor' ? '‍' : ''}`;
     if (sid === professorSocketId) return 'Professeur‍';
-    return sid.slice(0, 8);
+    return sid?.toString().slice(0, 8) || '?';
   };
-
-  const addRemoteStream = useCallback((sid, stream) => {
-    setRemoteStreams(prev => ({ ...prev, [sid]: stream }));
-  }, []);
-
-  const removeRemoteStream = useCallback((sid) => {
-    setRemoteStreams(prev => { const n = { ...prev }; delete n[sid]; return n; });
-    if (peersRef.current[sid]) { peersRef.current[sid].close(); delete peersRef.current[sid]; }
-    delete iceQueues.current[sid];
-  }, []);
 
   const getLocalMedia = async (startMuted = false) => {
     if (mediaPromiseRef.current) return await mediaPromiseRef.current;
@@ -148,45 +116,50 @@ const VideoChat = ({
     const target = (isSharing && screenStreamRef.current)
       ? screenStreamRef.current
       : localStreamRef.current;
-    // Ne réassigner srcObject que s'il a changé : réassigner le même flux
-    // recharge la vidéo et la fait clignoter.
     if (target && el.srcObject !== target) el.srcObject = target;
-  }, [localStream, camOff, isSharing, remoteStreams]);
+  }, [localStream, camOff, isSharing]);
 
-  const createPeer = useCallback((targetId, stream) => {
-    if (peersRef.current[targetId]) peersRef.current[targetId].close();
-    iceQueues.current[targetId] = [];
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
-    pc.onicecandidate = e => {
-      if (e.candidate) {
-        // DIAG : 'relay' = passe par TURN ; 'srflx'/'host' = direct (STUN/LAN)
-        console.log(`[WebRTC] candidat local -> ${targetId.slice(0, 6)} :`, e.candidate.type, e.candidate.protocol);
-        sendIceCandidate(targetId, e.candidate);
-      } else {
-        console.log(`[WebRTC] fin des candidats -> ${targetId.slice(0, 6)}`);
+  // Connect to Janus when we have room info and are in the session
+  useEffect(() => {
+    if (!inVideoSession || !janusRoomId || !janusWsUrl || janusConnectedRef.current) return;
+
+    const connectToJanus = async () => {
+      try {
+        const stream = localStreamRef.current || await getLocalMedia(isProfessor ? false : true);
+        if (!stream) return;
+
+        // Students start with tracks disabled
+        if (!isProfessor) {
+          stream.getVideoTracks().forEach(t => { t.enabled = false; });
+          stream.getAudioTracks().forEach(t => { t.enabled = false; });
+          setCamOff(true);
+          setMicMuted(true);
+        }
+
+        await janus.connect(janusWsUrl, janusRoomId, user?.username || 'Anonymous', (feedId, display, mediaStream) => {
+          setRemoteFeeds(prev => ({ ...prev, [feedId]: { stream: mediaStream, display } }));
+        });
+
+        await janus.publish(stream);
+        janusConnectedRef.current = true;
+        console.log('[Janus] Published successfully to room:', janusRoomId);
+      } catch (err) {
+        console.error('[Janus] Failed to connect/publish:', err);
+        setMediaError('Erreur de connexion au serveur vidéo.');
       }
     };
-    pc.ontrack = e => {
-      console.log(`[WebRTC] FLUX RECU de ${targetId.slice(0, 6)} (${e.track.kind})`);
-      if (e.streams?.[0]) addRemoteStream(targetId, e.streams[0]);
-    };
-    pc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] ICE ${targetId.slice(0, 6)} : ${pc.iceConnectionState}`);
-    };
-    pc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] connexion ${targetId.slice(0, 6)} : ${pc.connectionState}`);
-      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) removeRemoteStream(targetId);
-    };
-    peersRef.current[targetId] = pc;
-    return pc;
-  }, [addRemoteStream, removeRemoteStream]);
 
-  const flushIceQueue = async (sid, pc) => {
-    const q = iceQueues.current[sid] || [];
-    iceQueues.current[sid] = [];
-    for (const c of q) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
-  };
+    connectToJanus();
+  }, [inVideoSession, janusRoomId, janusWsUrl, isProfessor, user?.username]);
+
+  // Listen for Janus room info from socket (for students joining after session start)
+  useEffect(() => {
+    const unsub = onJanusRoomInfo(({ janusRoomId: rid, janusWsUrl: wurl }) => {
+      setJanusRoomId(rid);
+      setJanusWsUrl(wurl);
+    });
+    return () => unsub?.();
+  }, []);
 
   const startScreenShare = async () => {
     try {
@@ -196,10 +169,8 @@ const VideoChat = ({
       screenStreamRef.current = screen;
       const screenTrack = screen.getVideoTracks()[0];
 
-      await Promise.all(Object.values(peersRef.current).map(async pc => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) await sender.replaceTrack(screenTrack);
-      }));
+      // Replace video track in Janus publisher
+      await janus.replaceVideoTrack(screenTrack);
 
       emitScreenShareStarted(courseId);
       setIsSharing(true);
@@ -215,15 +186,12 @@ const VideoChat = ({
 
     const camTrack = localStreamRef.current?.getVideoTracks()[0];
     if (camTrack) {
-      Object.values(peersRef.current).forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) sender.replaceTrack(camTrack).catch(() => {});
-      });
+      janus.replaceVideoTrack(camTrack).catch(() => {});
     }
 
     emitScreenShareStopped(courseId);
     setIsSharing(false);
-  }, [courseId]);
+  }, [courseId, janus]);
 
   const handleRaiseHand = () => {
     if (!professorSocketId) return;
@@ -238,79 +206,22 @@ const VideoChat = ({
     }
   };
 
-  // Prof : accepte une main levée -> donne la parole (cam+micro de l'étudiant s'activent)
   const handleAcceptMic = (studentSocketId) => {
     grantFloor(courseId, studentSocketId);
     setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
   };
 
-  // Prof : refuse une demande -> on retire juste la demande de la liste
   const handleRejectMic = (studentSocketId) => {
     setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
   };
 
-
+  // Socket event listeners for floor, screen share, hand raise, peer left
   useEffect(() => {
-    // MESH : on reçoit la liste des pairs déjà présents -> on les appelle (offre vers chacun)
-    const unsubExisting = onExistingPeers(async (peers) => {
-      console.log('[WebRTC] existing-peers reçu :', (peers || []).map(p => p.socketId.slice(0, 6)));
-      const stream = localStreamRef.current || await getLocalMedia(true);
-      if (!stream) { console.warn('[WebRTC] pas de flux local -> aucune offre envoyée'); return; }
-      for (const p of (peers || [])) {
-        try {
-          const pc = createPeer(p.socketId, stream);
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          console.log('[WebRTC] OFFRE envoyée ->', p.socketId.slice(0, 6));
-          sendWebRTCOffer(p.socketId, offer);
-        } catch (e) { console.error('Erreur offre mesh:', e); }
-      }
-    });
-
-    // On reçoit une offre d'un pair (prof OU étudiant) -> on répond
-    const unsubOffer = onWebRTCOffer(async ({ fromSocketId, offer }) => {
-      console.log('[WebRTC] OFFRE reçue de', fromSocketId.slice(0, 6));
-      try {
-        const stream = localStreamRef.current || await getLocalMedia(true);
-        if (!stream) { console.warn('[WebRTC] pas de flux local -> pas de réponse'); return; }
-        const pc = createPeer(fromSocketId, stream);
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        await flushIceQueue(fromSocketId, pc);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        console.log('[WebRTC] REPONSE envoyée ->', fromSocketId.slice(0, 6));
-        sendWebRTCAnswer(fromSocketId, answer);
-      } catch (e) { console.error('Erreur réponse:', e); }
-    });
-
-    const unsubAnswer = onWebRTCAnswer(async ({ fromSocketId, answer }) => {
-      console.log('[WebRTC] REPONSE reçue de', fromSocketId.slice(0, 6));
-      const pc = peersRef.current[fromSocketId];
-      if (!pc) { console.warn('[WebRTC] réponse reçue mais aucun peer pour', fromSocketId.slice(0, 6)); return; }
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        await flushIceQueue(fromSocketId, pc);
-      } catch (e) { console.error('Erreur answer:', e); }
-    });
-
-    const unsubIce = onIceCandidate(async ({ fromSocketId, candidate }) => {
-      const pc = peersRef.current[fromSocketId];
-      if (!pc) return;
-      if (!pc.remoteDescription) {
-        if (!iceQueues.current[fromSocketId]) iceQueues.current[fromSocketId] = [];
-        iceQueues.current[fromSocketId].push(candidate);
-        return;
-      }
-      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
-    });
-
     const unsubLeft = onPeerLeft(({ socketId }) => {
-      removeRemoteStream(socketId);
       setHandRequests(prev => prev.filter(r => r.studentSocketId !== socketId));
       setGrantedIds(prev => prev.filter(id => id !== socketId));
     });
 
-    // Tout le monde apprend qui a la parole (pour l'affichage)
     const unsubFloor = onFloorUpdate(({ socketId, granted }) => {
       setGrantedIds(prev => granted
         ? [...new Set([...prev, socketId])]
@@ -339,38 +250,37 @@ const VideoChat = ({
         setHandRequests(prev => prev.filter(r => r.studentSocketId !== studentSocketId));
       });
     } else {
-      // Étudiant : le prof m'accorde la parole -> j'active ma cam et mon micro
       unsubGranted = onFloorGranted(() => {
+        // Floor granted: enable tracks and reconfigure Janus publisher
         const s = localStreamRef.current;
         s?.getVideoTracks().forEach(t => { t.enabled = true; });
         s?.getAudioTracks().forEach(t => { t.enabled = true; });
+        janus.configureMedia({ audio: true, video: true });
         setAmGranted(true); setCamOff(false); setMicMuted(false);
         setHandRaised(false); setHandStatus('idle');
       });
-      // Le prof me retire la parole -> je coupe ma cam et mon micro
       unsubRemoved = onFloorRemoved(() => {
+        // Floor removed: disable tracks
         const s = localStreamRef.current;
         s?.getVideoTracks().forEach(t => { t.enabled = false; });
         s?.getAudioTracks().forEach(t => { t.enabled = false; });
+        janus.configureMedia({ audio: false, video: false });
         setAmGranted(false); setCamOff(true); setMicMuted(true);
       });
     }
 
     return () => {
-      unsubExisting?.(); unsubOffer?.(); unsubAnswer?.();
-      unsubIce?.(); unsubLeft?.(); unsubFloor?.();
+      unsubLeft?.(); unsubFloor?.();
       unsubScreenStart?.(); unsubScreenStop?.();
       unsubHandRaised?.(); unsubHandLowered?.();
       unsubGranted?.(); unsubRemoved?.();
     };
-  }, [isProfessor, courseId, createPeer, addRemoteStream, removeRemoteStream]);
+  }, [isProfessor, courseId, janus]);
 
+  // Student: acquire media when joining
   useEffect(() => {
     if (!isProfessor && inVideoSession && !localStreamRef.current) {
       getLocalMedia(true).then((s) => {
-        // L'étudiant démarre cam ET micro coupés (il n'est que dans la liste).
-        // Les pistes sont quand même présentes (désactivées) pour le mesh :
-        // quand le prof l'interroge, on les réactive sans renégocier.
         s?.getVideoTracks().forEach(t => { t.enabled = false; });
         setMicMuted(true);
         setMicLocked(true);
@@ -379,28 +289,34 @@ const VideoChat = ({
     }
   }, [inVideoSession, isProfessor]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       localStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
-      Object.values(peersRef.current).forEach(pc => pc.close());
+      janus.disconnect();
+      janusConnectedRef.current = false;
     };
-  }, []);
+  }, [janus]);
 
   const toggleMic = () => {
-    // Étudiant : ne peut activer/couper son micro que s'il a la parole.
     if (!isProfessor && !amGranted) return;
     const t = localStreamRef.current?.getAudioTracks()[0];
     if (!t) return;
     const newMuted = !micMuted;
     t.enabled = !newMuted;
+    janus.configureMedia({ audio: !newMuted });
     setMicMuted(newMuted);
   };
 
   const toggleCam = () => {
     if (!isProfessor) return;
     const t = localStreamRef.current?.getVideoTracks()[0];
-    if (t) { t.enabled = !t.enabled; setCamOff(c => !c); }
+    if (t) {
+      t.enabled = !t.enabled;
+      janus.configureMedia({ video: t.enabled });
+      setCamOff(c => !c);
+    }
   };
 
   const handleStartSession = async () => {
@@ -416,8 +332,9 @@ const VideoChat = ({
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenStreamRef.current?.getTracks().forEach(t => t.stop());
     setLocalStream(null); setIsSharing(false);
-    Object.values(peersRef.current).forEach(pc => pc.close());
-    peersRef.current = {}; setRemoteStreams({});
+    janus.disconnect();
+    janusConnectedRef.current = false;
+    setRemoteFeeds({});
     setHandRequests([]); setGrantedIds([]);
     onEndSession();
   };
@@ -425,8 +342,9 @@ const VideoChat = ({
   const handleLeaveVideo = () => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     setLocalStream(null);
-    Object.values(peersRef.current).forEach(pc => pc.close());
-    peersRef.current = {}; setRemoteStreams({});
+    janus.disconnect();
+    janusConnectedRef.current = false;
+    setRemoteFeeds({});
     onLeaveVideo();
   };
 
@@ -436,17 +354,34 @@ const VideoChat = ({
       localStreamRef.current?.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
       setLocalStream(null);
-      Object.values(peersRef.current).forEach(pc => pc.close());
-      peersRef.current = {}; setRemoteStreams({});
+      janus.disconnect();
+      janusConnectedRef.current = false;
+      setRemoteFeeds({});
     });
     return () => unsub?.();
-  }, [isProfessor]);
+  }, [isProfessor, janus]);
 
-  // Flux du professeur (affiché en grand pour les étudiants).
-  const profStream = professorSocketId ? remoteStreams[professorSocketId] : null;
-  // Étudiants ayant la parole (affichés dans le bandeau, pour TOUT le monde).
+  // Build remote streams map (feedId → stream) from Janus hook
+  const janusRemoteStreams = janus.remoteStreams;
+  // Merge with our remoteFeeds state
+  const allRemoteFeeds = { ...remoteFeeds };
+  Object.entries(janusRemoteStreams).forEach(([feedId, stream]) => {
+    if (!allRemoteFeeds[feedId]) {
+      allRemoteFeeds[feedId] = { stream, display: feedId };
+    } else {
+      allRemoteFeeds[feedId].stream = stream;
+    }
+  });
+
+  // Find professor's feed
+  const profFeed = Object.entries(allRemoteFeeds).find(([, f]) => {
+    const p = (participants || []).find(p => p.role === 'professor');
+    return p && f.display === p.username;
+  });
+  const profStream = profFeed ? profFeed[1].stream : null;
+
   const grantedList = grantedIds.filter(sid => sid !== professorSocketId);
-  const hasVideo = localStream || Object.keys(remoteStreams).length > 0;
+  const hasVideo = localStream || Object.keys(allRemoteFeeds).length > 0;
 
   let sessionBtn = null;
   if (isProfessor) {
@@ -528,7 +463,7 @@ const VideoChat = ({
                 </div>
               )}
 
-              {/* Tuile de l'ÉTUDIANT INTERROGÉ (un seul à la fois, même taille, à côté) */}
+              {/* Tuile de l'ÉTUDIANT INTERROGÉ (un seul à la fois) */}
               {grantedList.length > 0 && (() => {
                 const sid = grantedList[0];
                 if (sid === myId) {
@@ -550,13 +485,17 @@ const VideoChat = ({
                     </div>
                   );
                 }
-                const stream = remoteStreams[sid];
-                if (!stream) return null;
+                // Find remote feed for this granted student
+                const grantedFeed = Object.entries(allRemoteFeeds).find(([, f]) => {
+                  const p = (participants || []).find(p => p.socketId === sid);
+                  return p && f.display === p.username;
+                });
+                if (!grantedFeed) return null;
                 return (
                   <RemoteVideo
                     key={sid}
                     className="speaker_tile"
-                    stream={stream}
+                    stream={grantedFeed[1].stream}
                     label={usernameFor(sid)}
                     refreshKey={screenShareVer}
                     micMuted={false}

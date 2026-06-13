@@ -54,17 +54,8 @@ export const leaveVideoSession = (courseId) => {
   socket.emit('leave-video-session', { courseId });
 };
 
-export const sendWebRTCOffer = (targetSocketId, offer) => {
-  socket.emit('webrtc-offer', { targetSocketId, offer });
-};
-
-export const sendWebRTCAnswer = (targetSocketId, answer) => {
-  socket.emit('webrtc-answer', { targetSocketId, answer });
-};
-
-export const sendIceCandidate = (targetSocketId, candidate) => {
-  socket.emit('ice-candidate', { targetSocketId, candidate });
-};
+// P2P signaling (webrtc-offer/answer/ice-candidate) removed — Janus SFU
+// handles media directly between clients and the Janus server.
 
 export const onVideoSessionStarted = (cb) => {
   socket.on('video-session-started', cb);
@@ -76,34 +67,14 @@ export const onVideoSessionEnded = (cb) => {
   return () => socket.off('video-session-ended', cb);
 };
 
-export const onStudentWantsToJoin = (cb) => {
-  socket.on('student-wants-to-join', cb);
-  return () => socket.off('student-wants-to-join', cb);
-};
-
-export const onWebRTCOffer = (cb) => {
-  socket.on('webrtc-offer', cb);
-  return () => socket.off('webrtc-offer', cb);
-};
-
-export const onWebRTCAnswer = (cb) => {
-  socket.on('webrtc-answer', cb);
-  return () => socket.off('webrtc-answer', cb);
-};
-
-export const onIceCandidate = (cb) => {
-  socket.on('ice-candidate', cb);
-  return () => socket.off('ice-candidate', cb);
-};
-
 export const onPeerLeft = (cb) => {
   socket.on('peer-left', cb);
   return () => socket.off('peer-left', cb);
 };
 
-export const onExistingPeers = (cb) => {
-  socket.on('existing-peers', cb);
-  return () => socket.off('existing-peers', cb);
+export const onJanusRoomInfo = (cb) => {
+  socket.on('janus-room-info', cb);
+  return () => socket.off('janus-room-info', cb);
 };
  
 export const grantFloor = (courseId, studentSocketId) => {

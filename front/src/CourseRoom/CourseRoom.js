@@ -92,6 +92,8 @@ const CourseRoom = () => {
   const [mobileChat, setMobileChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [grantedIds, setGrantedIds] = useState([]); // étudiants ayant la parole (pour la liste)
+  const [janusRoomId, setJanusRoomId] = useState(null);
+  const [janusWsUrl, setJanusWsUrl] = useState(null);
 
   const isProfessor = user?.role === 'professor';
   const timerDisplay = useTimer(inVideoSession);
@@ -114,12 +116,16 @@ const CourseRoom = () => {
         const session = liveCourses[String(courseId)];
         if (session) {
           dispatch(setVideoSessionActive({ active: true, professorSocketId: session.professorSocketId }));
+          if (session.janusRoomId) setJanusRoomId(session.janusRoomId);
+          if (session.janusWsUrl) setJanusWsUrl(session.janusWsUrl);
         }
       });
     }
 
-    const unsubStart = onVideoSessionStarted(({ professorSocketId: pId }) => {
+    const unsubStart = onVideoSessionStarted(({ professorSocketId: pId, janusRoomId: rid, janusWsUrl: wurl }) => {
       dispatch(setVideoSessionActive({ active: true, professorSocketId: pId }));
+      if (rid) setJanusRoomId(rid);
+      if (wurl) setJanusWsUrl(wurl);
     });
 
     const unsubEnd = onVideoSessionEnded(() => {
@@ -308,6 +314,8 @@ const CourseRoom = () => {
             onLeaveVideo={handleLeaveVideo}
             onRetryJoin={handleRetryJoin}
             onBack={handleBack}
+            janusRoomId={janusRoomId}
+            janusWsUrl={janusWsUrl}
           />
         </div>
 

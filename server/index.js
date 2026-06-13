@@ -17,6 +17,9 @@ const groupsRoutes      = require('./routes/groups');
 const submissionsRoutes = require('./routes/submissions');
 const chatRoutes        = require('./routes/chat');
 const { sendLiveSessionEmail } = require('./email');
+const janus = require('./janus');
+
+const JANUS_WS_URL = process.env.JANUS_WS_URL || 'ws://localhost:8188';
 
 const app = express();
 const server = http.createServer(app); 
@@ -223,6 +226,21 @@ io.on('connection', (socket) => {
     const user = connectedUsers[socket.id];
     if (!user || user.role !== 'professor') return;
     courseId = String(courseId);
+
+    // Create a Janus VideoRoom for this course
+    const janusRoomId = `course-${courseId}`;
+    try {
+      const exists = await janus.roomExists(janusRoomId);
+      if (!exists) {
+        await janus.createRoom(janusRoomId, `Course ${courseId}`);
+        console.log(`Janus VideoRoom created: ${janusRoomId}`);
+      }
+    } catch (err) {
+      console.error('Failed to create Janus room:', err.message);
+      socket.emit('video-session-error', { error: 'Failed to create video room' });
+      return;
+    }
+
     if (!courseRooms[courseId]) courseRooms[courseId] = new Set();
     courseRooms[courseId].add(socket.id);
     socket.join(`video-${courseId}`);
@@ -230,12 +248,16 @@ io.on('connection', (socket) => {
       professorSocketId: socket.id,
       professorName: user.username,
       startedAt: new Date().toISOString(),
+      janusRoomId,
+      janusWsUrl: JANUS_WS_URL,
     };
     courseParticipants[courseId] = { [socket.id]: { username: user.username, role: user.role } };
     io.emit('live-courses-update', liveCourses);
     io.to(getRoomKey(courseId)).emit('video-session-started', {
       courseId,
       professorSocketId: socket.id,
+      janusRoomId,
+      janusWsUrl: JANUS_WS_URL,
     });
     io.to(`video-${courseId}`).emit('participants-update', [{ socketId: socket.id, username: user.username, role: 'professor' }]);
 
@@ -298,9 +320,6 @@ io.on('connection', (socket) => {
     courseId = String(courseId);
     if (!courseRooms[courseId]) courseRooms[courseId] = new Set();
 
-    const existingPeers = Object.entries(courseParticipants[courseId] || {})
-      .map(([sid, u]) => ({ socketId: sid, username: u.username, role: u.role }));
-
     courseRooms[courseId].add(socket.id);
     socket.join(`video-${courseId}`);
     if (!courseParticipants[courseId]) courseParticipants[courseId] = {};
@@ -309,7 +328,14 @@ io.on('connection', (socket) => {
     const parts = Object.entries(courseParticipants[courseId]).map(([sid, u]) => ({ socketId: sid, username: u.username, role: u.role }));
     io.to(`video-${courseId}`).emit('participants-update', parts);
 
-    io.to(socket.id).emit('existing-peers', existingPeers);
+    // Send Janus connection info to the joining client
+    const live = liveCourses[courseId];
+    if (live) {
+      io.to(socket.id).emit('janus-room-info', {
+        janusRoomId: live.janusRoomId,
+        janusWsUrl: JANUS_WS_URL,
+      });
+    }
   });
 
   socket.on('grant-floor', ({ courseId, studentSocketId }) => {
@@ -338,35 +364,28 @@ io.on('connection', (socket) => {
   });
 
  
-  socket.on('webrtc-offer', ({ targetSocketId, offer }) => {
-    io.to(targetSocketId).emit('webrtc-offer', {
-      fromSocketId: socket.id,
-      offer,
-    });
-  });
+  // WebRTC signaling (offer/answer/ICE) is now handled directly
+  // between clients and the Janus SFU via WebSocket — no relay needed.
 
-  socket.on('webrtc-answer', ({ targetSocketId, answer }) => {
-    io.to(targetSocketId).emit('webrtc-answer', {
-      fromSocketId: socket.id,
-      answer,
-    });
-  });
-
-  socket.on('ice-candidate', ({ targetSocketId, candidate }) => {
-    io.to(targetSocketId).emit('ice-candidate', {
-      fromSocketId: socket.id,
-      candidate,
-    });
-  });
-
-  socket.on('end-video-session', (courseId) => {
+  socket.on('end-video-session', async (courseId) => {
     const user = connectedUsers[socket.id];
     if (!user || user.role !== 'professor') return;
     courseId = String(courseId);
+
+    // Destroy the Janus VideoRoom
+    const janusRoomId = `course-${courseId}`;
+    try {
+      await janus.destroyRoom(janusRoomId);
+      console.log(`Janus VideoRoom destroyed: ${janusRoomId}`);
+    } catch (err) {
+      console.error('Failed to destroy Janus room:', err.message);
+    }
+
     io.to(`video-${courseId}`).emit('video-session-ended', { courseId });
     if (courseRooms[courseId]) delete courseRooms[courseId];
     delete liveCourses[courseId];
     delete courseParticipants[courseId];
+    delete courseFloor[courseId];
     io.emit('live-courses-update', liveCourses);
   });
 

@@ -5,6 +5,7 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
     "cra-template-redux": "2.0.0",
+    "janus-gateway": "^1.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-redux": "^9.2.0",

@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  janus:
+    image: canyan/janus-gateway:0.14.3
+    restart: unless-stopped
+    ports:
+      - "8088:8088"   # HTTP transport (REST API)
+      - "8188:8188"   # WebSocket transport (clients connect here)
+      - "8089:8089"   # HTTPS transport (optional)
+      - "8989:8989"   # Admin API
+      - "7088:7088"   # Admin WebSocket
+      - "20000-20100:20000-20100/udp"  # RTP media ports
+    volumes:
+      - ./janus/janus.jcfg:/etc/janus/janus.jcfg:ro
+      - ./janus/janus.transport.http.jcfg:/etc/janus/janus.transport.http.jcfg:ro
+      - ./janus/janus.transport.websockets.jcfg:/etc/janus/janus.transport.websockets.jcfg:ro
+      - ./janus/janus.plugin.videoroom.jcfg:/etc/janus/janus.plugin.videoroom.jcfg:ro
+    environment:
+      - JANUS_ADMIN_SECRET=janusoverlord
+      - JANUS_API_SECRET=janusapisecret
+    networks:
+      - uniplatform
+
+networks:
+  uniplatform:
+    driver: bridge
