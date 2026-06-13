@@ -57,6 +57,17 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
+// Global error handler for uncaught route/middleware errors
+app.use((err, req, res, _next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'JSON invalide.' });
+  }
+  console.error('Erreur non gérée:', err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
 
 const connectedUsers = {};
@@ -136,6 +147,7 @@ io.on('connection', (socket) => {
       io.to(globalRoom(user.filiere)).emit('global-message', message);
     } catch (err) {
       console.error('Erreur sauvegarde message global:', err.message);
+      socket.emit('message-error', { context: 'global', error: 'Impossible d\'envoyer le message.' });
     }
   });
 
@@ -170,6 +182,7 @@ io.on('connection', (socket) => {
       io.to(`group-${groupId}`).emit('group-message', message);
     } catch (err) {
       console.error('Erreur sauvegarde message groupe:', err.message);
+      socket.emit('message-error', { context: 'group', groupId, error: 'Impossible d\'envoyer le message.' });
     }
   });
 
@@ -207,7 +220,8 @@ io.on('connection', (socket) => {
       };
       io.to(getRoomKey(courseId)).emit('new-message', message);
     } catch (err) {
-      console.error('Erreur sauvegarde message:', err);
+      console.error('Erreur sauvegarde message cours:', err);
+      socket.emit('message-error', { context: 'course', courseId, error: 'Impossible d\'envoyer le message.' });
     }
   });
 

@@ -33,7 +33,8 @@ router.get('/', verifyToken, async (req, res) => {
     }
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur liste groupes:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -47,7 +48,8 @@ router.get('/students', verifyToken, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur liste étudiants:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -80,7 +82,8 @@ router.post('/', verifyToken, async (req, res) => {
     );
     res.status(201).json(group);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur création groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -99,7 +102,8 @@ router.get('/:id/members', verifyToken, async (req, res) => {
     );
     res.json(members);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur membres groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -115,7 +119,8 @@ router.delete('/:id/leave', verifyToken, async (req, res) => {
       [req.params.id, req.user.id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur quitter groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -134,7 +139,8 @@ router.delete('/:id/members/:userId', verifyToken, async (req, res) => {
       [req.params.id, req.params.userId]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur expulsion membre:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -149,7 +155,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     await db.run('DELETE FROM study_groups WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur suppression groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 

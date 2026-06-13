@@ -66,6 +66,7 @@ const CoursDevoirs = () => {
   const [creating,    setCreating]    = useState(false);
   const [openFilesId, setOpenFilesId] = useState(null);
   const [filter,      setFilter]      = useState('tous'); 
+  const [fetchError, setFetchError] = useState('');
 
   const isProfessor = user?.role === 'professor';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -74,7 +75,7 @@ const CoursDevoirs = () => {
     fetch(`${API}/courses`, { headers })
       .then((r) => r.json())
       .then((data) => dispatch(setCourses(Array.isArray(data) ? data : [])))
-      .catch(() => {});
+      .catch(() => setFetchError('Impossible de charger les cours.'));
   }, [token]);
 
   const handleCreate = async () => {
@@ -90,15 +91,24 @@ const CoursDevoirs = () => {
         dispatch(addCourse({ ...data, professor_name: user.username, type: form.type }));
         setForm({ title: '', description: '', type: 'cours', filiere: '' });
         setShowModal(false);
+      } else {
+        alert(data.error || 'Erreur lors de la création.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setCreating(false); }
   };
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     if (!window.confirm('Supprimer ce cours ?')) return;
-    const res = await fetch(`${API}/courses/${id}`, { method: 'DELETE', headers });
-    if (res.ok) { dispatch(removeCourse(id)); if (openFilesId === id) setOpenFilesId(null); }
+    try {
+      const res = await fetch(`${API}/courses/${id}`, { method: 'DELETE', headers });
+      if (res.ok) { dispatch(removeCourse(id)); if (openFilesId === id) setOpenFilesId(null); }
+      else alert('Erreur lors de la suppression.');
+    } catch {
+      alert('Impossible de joindre le serveur.');
+    }
   };
 
   const toggleFiles = (id, e) => {
@@ -135,9 +145,11 @@ const CoursDevoirs = () => {
         ))}
       </div>
 
+      {fetchError && <p style={{ color: '#DC2626', textAlign: 'center', margin: '18px 0' }}>{fetchError}</p>}
+
       {}
       <div className="cours_list">
-        {displayed.length === 0 ? (
+        {displayed.length === 0 && !fetchError ? (
           <div className="cours_empty">
             <BookIcon />
             <span>Aucun cours disponible.</span>

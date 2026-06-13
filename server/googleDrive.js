@@ -39,7 +39,16 @@ const streamFromDrive = async (fileId, res, originalName, mimeType = 'applicatio
   );
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(originalName)}"`);
   res.setHeader('Content-Type', mimeType);
-  fileRes.data.pipe(res);
+  fileRes.data
+    .on('error', (err) => {
+      console.error('Erreur streaming Drive:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Erreur téléchargement fichier.' });
+      } else {
+        res.end();
+      }
+    })
+    .pipe(res);
 };
 
 const deleteFromDrive = async (fileId) => {

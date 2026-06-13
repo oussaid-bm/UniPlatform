@@ -33,7 +33,10 @@ router.get('/global', verifyToken, async (req, res) => {
       [req.user.filiere || '']
     );
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur historique chat global:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 router.post('/global/file', verifyToken, upload.single('file'), async (req, res) => {
@@ -48,7 +51,10 @@ router.post('/global/file', verifyToken, upload.single('file'), async (req, res)
     );
     const msg = await db.get('SELECT * FROM global_messages WHERE id = ?', [result.lastID]);
     res.json(msg);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur upload fichier chat global:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 router.get('/global/download/:filename', verifyToken, async (req, res) => {
@@ -61,7 +67,10 @@ router.get('/global/download/:filename', verifyToken, async (req, res) => {
     const filePath = path.join(UPLOADS_DIR, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
     res.download(filePath);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur téléchargement fichier chat global:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 router.get('/group/:groupId', verifyToken, async (req, res) => {
@@ -72,7 +81,10 @@ router.get('/group/:groupId', verifyToken, async (req, res) => {
       [req.params.groupId]
     );
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur historique chat groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 router.post('/group/:groupId/file', verifyToken, upload.single('file'), async (req, res) => {
@@ -88,7 +100,10 @@ router.post('/group/:groupId/file', verifyToken, upload.single('file'), async (r
     );
     const msg = await db.get('SELECT * FROM group_messages WHERE id = ?', [result.lastID]);
     res.json(msg);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur upload fichier chat groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 router.get('/group/download/:filename', verifyToken, async (req, res) => {
@@ -101,7 +116,10 @@ router.get('/group/download/:filename', verifyToken, async (req, res) => {
     const filePath = path.join(UPLOADS_DIR, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
     res.download(filePath);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Erreur téléchargement fichier chat groupe:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
 });
 
 module.exports = router;

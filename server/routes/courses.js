@@ -34,7 +34,8 @@ router.get('/', verifyToken, async (req, res) => {
       );
     }
     res.json(rows);
-  } catch {
+  } catch (err) {
+    console.error('Erreur liste cours:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -62,7 +63,8 @@ router.post('/', verifyToken, async (req, res) => {
         [filiereTarget, filiereTarget]
       );
       students.forEach(s =>
-        sendNewDevoirEmail(s.email, s.username, title, req.user.username).catch(() => {})
+        sendNewDevoirEmail(s.email, s.username, title, req.user.username)
+          .catch((err) => console.error(`Échec email devoir ${s.email}:`, err.message))
       );
     }
 
@@ -77,7 +79,8 @@ router.post('/', verifyToken, async (req, res) => {
       type: courseType,
       created_at: new Date().toISOString(),
     });
-  } catch {
+  } catch (err) {
+    console.error('Erreur création cours:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -95,7 +98,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
     await db.run('DELETE FROM courses WHERE id = ?', [req.params.id]);
     res.json({ message: 'Cours supprimé.' });
-  } catch {
+  } catch (err) {
+    console.error('Erreur suppression cours:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -111,7 +115,8 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
       [req.params.id]
     );
     res.json(rows);
-  } catch {
+  } catch (err) {
+    console.error('Erreur messages cours:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });

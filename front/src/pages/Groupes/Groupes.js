@@ -81,6 +81,7 @@ const Groupes = () => {
   const [membersModal,  setMembersModal]  = useState(null); 
   const [members,       setMembers]       = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -88,7 +89,7 @@ const Groupes = () => {
     fetch(`${API}/groups`, { headers })
       .then((r) => r.json())
       .then((data) => setGroups(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setFetchError('Impossible de charger les groupes.'));
   }, [token]);
 
   useEffect(() => {
@@ -130,6 +131,8 @@ const Groupes = () => {
       .catch(() => {});
   };
 
+  // Note: group messages fetch errors are non-critical since real-time delivery continues
+
   const handleSend = () => {
     if (!text.trim() || !activeGroup) return;
     getSocket()?.emit('send-group-message', { groupId: activeGroup.id, content: text.trim() });
@@ -155,7 +158,11 @@ const Groupes = () => {
       const msg = await res.json();
       if (res.ok) {
         getSocket()?.emit('broadcast-group-file', { groupId: activeGroup.id, message: msg });
+      } else {
+        alert('Erreur lors de l\'envoi du fichier.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -201,27 +208,39 @@ const Groupes = () => {
       if (res.ok) {
         setGroups((prev) => [data, ...prev]);
         setShowModal(false);
+      } else {
+        alert(data.error || 'Erreur lors de la création.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setCreating(false); }
   };
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Supprimer ce groupe ?')) return;
-    const res = await fetch(`${API}/groups/${id}`, { method: 'DELETE', headers });
-    if (res.ok) {
-      setGroups((prev) => prev.filter((g) => g.id !== id));
-      if (activeGroup?.id === id) setActiveGroup(null);
+    try {
+      const res = await fetch(`${API}/groups/${id}`, { method: 'DELETE', headers });
+      if (res.ok) {
+        setGroups((prev) => prev.filter((g) => g.id !== id));
+        if (activeGroup?.id === id) setActiveGroup(null);
+      } else alert('Erreur lors de la suppression.');
+    } catch {
+      alert('Impossible de joindre le serveur.');
     }
   };
 
   const handleLeave = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Quitter ce groupe ?')) return;
-    const res = await fetch(`${API}/groups/${id}/leave`, { method: 'DELETE', headers });
-    if (res.ok) {
-      setGroups((prev) => prev.filter((g) => g.id !== id));
-      if (activeGroup?.id === id) setActiveGroup(null);
+    try {
+      const res = await fetch(`${API}/groups/${id}/leave`, { method: 'DELETE', headers });
+      if (res.ok) {
+        setGroups((prev) => prev.filter((g) => g.id !== id));
+        if (activeGroup?.id === id) setActiveGroup(null);
+      } else alert('Erreur en quittant le groupe.');
+    } catch {
+      alert('Impossible de joindre le serveur.');
     }
   };
 
@@ -241,11 +260,10 @@ const Groupes = () => {
     const res = await fetch(`${API}/groups/${membersModal.id}/members/${userId}`, {
       method: 'DELETE', headers,
     });
-    if (res.ok) {
-      setMembers((prev) => prev.filter((m) => m.id !== userId));
-      setGroups((prev) => prev.map((g) =>
+    if (!res.ok) { alert('Erreur lors de l\'expulsion.'); return; }
+    setMembers((prev) => prev.filter((m) => m.id !== userId));
+    setGroups((prev) => prev.map((g) =>
         g.id === membersModal.id ? { ...g, member_count: Math.max(0, (g.member_count || 1) - 1) } : g));
-    }
   };
 
   const groupMessages = activeGroup ? (messages[activeGroup.id] || []) : [];
@@ -262,7 +280,8 @@ const Groupes = () => {
           )}
         </div>
 
-        {groups.length === 0 ? (
+        {fetchError && <p style={{ color: '#DC2626', textAlign: 'center', margin: '12px 0', fontSize: 13 }}>{fetchError}</p>}
+        {groups.length === 0 && !fetchError ? (
           <div className="groups_empty">
             <GroupIconSvg />
             <span>{isProfessor ? 'Aucun groupe créé.' : 'Vous n\'êtes dans aucun groupe.'}</span>

@@ -50,6 +50,7 @@ const ChatGlobal = () => {
   const [showOnline, setShowOnline] = useState(false);
   const [text, setText] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -60,7 +61,7 @@ const ChatGlobal = () => {
     })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setMessages(data); })
-      .catch(() => {});
+      .catch(() => setFetchError('Impossible de charger les messages.'));
   }, [token]);
 
   useEffect(() => {
@@ -109,7 +110,11 @@ const ChatGlobal = () => {
       const msg = await res.json();
       if (res.ok) {
         getSocket()?.emit('broadcast-global-file', { message: msg });
+      } else {
+        alert('Erreur lors de l\'envoi du fichier.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -141,6 +146,7 @@ const ChatGlobal = () => {
       <div className="chat_main_row">
       <div className="chat_left">
       <div className="chat_messages_list">
+        {fetchError && <p style={{ color: '#DC2626', textAlign: 'center', margin: '18px 0' }}>{fetchError}</p>}
         {messages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
           const prev = messages[i - 1];

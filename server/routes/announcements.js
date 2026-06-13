@@ -23,7 +23,8 @@ router.get('/', verifyToken, async (req, res) => {
       );
     }
     res.json(rows);
-  } catch {
+  } catch (err) {
+    console.error('Erreur liste annonces:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -70,7 +71,8 @@ router.post('/', verifyToken, async (req, res) => {
     } catch (err) {
       console.error('Erreur envoi emails annonce:', err.message);
     }
-  } catch {
+  } catch (err) {
+    console.error('Erreur création annonce:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -88,7 +90,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
     await db.run('DELETE FROM announcements WHERE id = ?', [req.params.id]);
     res.json({ message: 'Annonce supprimée.' });
-  } catch {
+  } catch (err) {
+    console.error('Erreur suppression annonce:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });

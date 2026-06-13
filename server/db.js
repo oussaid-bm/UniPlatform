@@ -195,7 +195,11 @@ const getDb = async () => {
 
   try {
     await pool.query("ALTER TABLE global_messages ADD COLUMN filiere VARCHAR(255) DEFAULT ''");
-  } catch (e) { }
+  } catch (e) {
+    if (e.code !== 'ER_DUP_FIELDNAME' && !e.message?.includes('Duplicate column name')) {
+      console.error('Erreur migration global_messages:', e.message);
+    }
+  }
 
   console.log(`Base MySQL "${DB_NAME}" prête (${tables.length} tables).`);
   return dbWrapper;

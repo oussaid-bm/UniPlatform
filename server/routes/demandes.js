@@ -37,7 +37,8 @@ router.get('/', verifyToken, async (req, res) => {
     const rows = await db.all(`SELECT * FROM demandes ORDER BY created_at DESC`);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur liste demandes:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -71,7 +72,8 @@ router.post('/', verifyToken, async (req, res) => {
     const demande = await db.get('SELECT * FROM demandes WHERE id = ?', [result.lastID]);
     res.status(201).json(demande);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur création demande:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -97,7 +99,8 @@ router.patch('/:id', verifyToken, async (req, res) => {
     const updated = await db.get('SELECT * FROM demandes WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur mise à jour demande:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
@@ -112,7 +115,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     await db.run('DELETE FROM demandes WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur suppression demande:', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 

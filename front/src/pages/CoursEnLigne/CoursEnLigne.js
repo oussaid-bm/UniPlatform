@@ -66,6 +66,7 @@ const CoursEnLigne = () => {
   const [camModal,   setCamModal]   = useState(null);
   const [camError,   setCamError]   = useState('');
   const [checking,   setChecking]   = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -80,7 +81,7 @@ const CoursEnLigne = () => {
           setSessions(all.filter((c) => c.is_live_session));
         }
       })
-      .catch(() => {});
+      .catch(() => setFetchError('Impossible de charger les sessions.'));
 
     const socket = getSocket();
     if (!socket) return;
@@ -103,14 +104,23 @@ const CoursEnLigne = () => {
         setSessions((prev) => [data, ...prev]);
         setForm({ title: '', filiere: '' });
         setShowModal(false);
+      } else {
+        alert(data.error || 'Erreur lors de la création.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setCreating(false); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer cette session ?')) return;
-    const res = await fetch(`${API}/courses/${id}`, { method: 'DELETE', headers });
-    if (res.ok) setSessions((prev) => prev.filter((s) => s.id !== id));
+    try {
+      const res = await fetch(`${API}/courses/${id}`, { method: 'DELETE', headers });
+      if (res.ok) setSessions((prev) => prev.filter((s) => s.id !== id));
+      else alert('Erreur lors de la suppression.');
+    } catch {
+      alert('Impossible de joindre le serveur.');
+    }
   };
 
   const handleStart = (sessionId) => navigate(`/app/cours/${sessionId}`);
@@ -150,6 +160,8 @@ const CoursEnLigne = () => {
           </button>
         )}
       </div>
+
+      {fetchError && <p style={{ color: '#DC2626', textAlign: 'center', margin: '18px 0' }}>{fetchError}</p>}
 
       {}
       {isProfessor && (

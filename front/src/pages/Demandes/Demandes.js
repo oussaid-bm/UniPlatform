@@ -101,6 +101,7 @@ const Demandes = () => {
   const [replyStatus,   setReplyStatus]   = useState('repondu');
   const [replyResponse, setReplyResponse] = useState('');
   const [saving,        setSaving]        = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -113,7 +114,7 @@ const Demandes = () => {
         setDemandes(d);
         setProfessors(Array.isArray(p) ? p : []);
       })
-      .catch(() => {})
+      .catch(() => setFetchError('Impossible de charger les demandes.'))
       .finally(() => setLoading(false));
   }, [token]); 
 
@@ -146,14 +147,24 @@ const Demandes = () => {
           setDemandes((prev) => [data, ...(Array.isArray(prev) ? prev : [])]);
         }
         setShowModal(false);
+      } else {
+        alert(data.error || 'Erreur lors de l\'envoi.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setSending(false); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer cette demande ?')) return;
-    const res = await fetch(`${API}/demandes/${id}`, { method: 'DELETE', headers });
-    if (!res.ok) return;
+    let res;
+    try {
+      res = await fetch(`${API}/demandes/${id}`, { method: 'DELETE', headers });
+    } catch {
+      alert('Impossible de joindre le serveur.');
+      return;
+    }
+    if (!res.ok) { alert('Erreur lors de la suppression.'); return; }
     if (isProfessor) {
       setDemandes((prev) => ({
         fromStudents:  prev?.fromStudents?.filter((d) => d.id !== id)  || [],
@@ -189,11 +200,16 @@ const Demandes = () => {
           setDemandes((prev) => prev.map((d) => d.id === updated.id ? updated : d));
         }
         setReplyModal(null);
+      } else {
+        alert(updated.error || 'Erreur lors de la réponse.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setSaving(false); }
   };
 
   if (loading) return <div className="demandes_page"><p style={{ color: '#7A7060' }}>Chargement...</p></div>;
+  if (fetchError) return <div className="demandes_page"><p style={{ color: '#DC2626' }}>{fetchError}</p></div>;
 
   if (isProfessor) {
     const fromStudents    = demandes?.fromStudents  || [];

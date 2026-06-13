@@ -65,8 +65,9 @@ router.post('/register', async (req, res) => {
       devVerifyLink: isDevMode ? `${APP_URL}/api/auth/verify-email?token=${token}` : undefined,
     });
   } catch (err) {
-    if (err.message?.includes('UNIQUE constraint failed'))
+    if (err.code === 'ER_DUP_ENTRY' || err.message?.includes('UNIQUE constraint failed'))
       return res.status(409).json({ error: "Email ou nom d'utilisateur déjà utilisé." });
+    console.error('Erreur inscription:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -94,7 +95,8 @@ router.get('/verify-email', async (req, res) => {
 
     const APP_URL = process.env.APP_URL || 'http://localhost:3003';
     res.redirect(`${APP_URL}/?verified=1`);
-  } catch {
+  } catch (err) {
+    console.error('Erreur vérification email:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -123,7 +125,8 @@ router.post('/resend-verification', async (req, res) => {
     );
 
     res.json({ message: 'Email de vérification renvoyé.' });
-  } catch {
+  } catch (err) {
+    console.error('Erreur renvoi vérification:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -154,7 +157,8 @@ router.post('/login', async (req, res) => {
       token,
       user: { id: user.id, username: user.username, email: user.email, role: user.role, filiere: user.filiere || '' },
     });
-  } catch {
+  } catch (err) {
+    console.error('Erreur login:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -190,7 +194,8 @@ router.post('/forgot-password', async (req, res) => {
       ...ok,
       devResetLink: isDevMode ? `${APP_URL}/?reset_token=${token}` : undefined,
     });
-  } catch {
+  } catch (err) {
+    console.error('Erreur mot de passe oublié:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -215,7 +220,8 @@ router.post('/reset-password', async (req, res) => {
     );
 
     res.json({ message: 'Mot de passe réinitialisé avec succès.' });
-  } catch {
+  } catch (err) {
+    console.error('Erreur réinitialisation mot de passe:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -228,7 +234,8 @@ router.get('/account-status', async (req, res) => {
     const user = await db.get('SELECT id, email_verified FROM users WHERE email = ?', [email]);
     if (!user) return res.json({ exists: false });
     res.json({ exists: true, verified: !!user.email_verified });
-  } catch {
+  } catch (err) {
+    console.error('Erreur statut compte:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
@@ -242,7 +249,8 @@ router.get('/professors', verifyToken, async (req, res) => {
       ['professor']
     );
     res.json(professors);
-  } catch {
+  } catch (err) {
+    console.error('Erreur liste professeurs:', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });

@@ -27,6 +27,7 @@ const Annonces = () => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', filiere: '' });
   const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const canPost = ['professor', 'admin'].includes(user?.role);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -35,7 +36,7 @@ const Annonces = () => {
     fetch(`${API}/announcements`, { headers })
       .then((r) => r.json())
       .then((data) => setAnnonces(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setFetchError('Impossible de charger les annonces.'));
   }, [token]);
 
   const handleCreate = async () => {
@@ -51,14 +52,23 @@ const Annonces = () => {
         setAnnonces((prev) => [data, ...prev]);
         setForm({ title: '', content: '', filiere: '' });
         setShowModal(false);
+      } else {
+        alert(data.error || 'Erreur lors de la création.');
       }
+    } catch {
+      alert('Impossible de joindre le serveur.');
     } finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer cette annonce ?')) return;
-    const res = await fetch(`${API}/announcements/${id}`, { method: 'DELETE', headers });
-    if (res.ok) setAnnonces((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const res = await fetch(`${API}/announcements/${id}`, { method: 'DELETE', headers });
+      if (res.ok) setAnnonces((prev) => prev.filter((a) => a.id !== id));
+      else alert('Erreur lors de la suppression.');
+    } catch {
+      alert('Impossible de joindre le serveur.');
+    }
   };
 
   return (
@@ -79,8 +89,10 @@ const Annonces = () => {
         )}
       </div>
 
+      {fetchError && <p style={{ color: '#DC2626', textAlign: 'center', margin: '18px 0' }}>{fetchError}</p>}
+
       <div className="annonces_list">
-        {annonces.length === 0 ? (
+        {annonces.length === 0 && !fetchError ? (
           <div className="annonces_empty">
             <div className="annonces_empty_icon"><BellIcon /></div>
             <p>Aucune annonce pour le moment.</p>

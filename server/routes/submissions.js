@@ -76,7 +76,8 @@ router.post('/upload/:courseId', verifyToken, upload.single('file'), async (req,
       [req.params.courseId]
     );
     if (course) {
-      sendSubmissionEmail(course.email, course.username, req.user.username, course.title).catch(() => {});
+      sendSubmissionEmail(course.email, course.username, req.user.username, course.title)
+        .catch((err) => console.error(`Échec email soumission ${course.email}:`, err.message));
     }
 
     res.status(201).json({
@@ -163,7 +164,7 @@ router.patch('/:id/grade', verifyToken, async (req, res) => {
     const student = await db.get('SELECT email FROM users WHERE id = ?', [sub.student_id]);
     if (student && course) {
       sendGradeEmail(student.email, sub.student_name, course.title, g, grade_comment || '')
-        .catch(() => {});
+        .catch((err) => console.error(`Échec email note ${student.email}:`, err.message));
     }
 
     res.json({ id: sub.id, grade: g, grade_comment: grade_comment || '' });
