@@ -7,6 +7,10 @@ const DB_PORT = process.env.DB_PORT || 3306;
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASS = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'uniplatform';
+if (!/^[a-zA-Z0-9_]+$/.test(DB_NAME)) {
+  console.error('FATAL: DB_NAME contains invalid characters.');
+  process.exit(1);
+}
 
 let dbWrapper;
 

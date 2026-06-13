@@ -15,12 +15,17 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
+function sanitizeFilename(name) {
+  return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 async function storeFile(file) {
   if (driveEnabled()) {
     const driveFile = await uploadToDrive(file.buffer, file.originalname, file.mimetype || 'application/octet-stream');
     return driveFile.id;
   }
-  const localName = `${Date.now()}_${file.originalname}`;
+  const safeName = sanitizeFilename(file.originalname);
+  const localName = `${Date.now()}_${safeName}`;
   fs.writeFileSync(path.join(UPLOADS_DIR, localName), file.buffer);
   return localName;
 }
@@ -58,7 +63,9 @@ router.get('/global/download/:filename', verifyToken, async (req, res) => {
       const msg = await db.get('SELECT file_original FROM global_messages WHERE file_name = ?', [req.params.filename]);
       return await streamFromDrive(req.params.filename, res, msg?.file_original || 'fichier');
     }
-    const filePath = path.join(UPLOADS_DIR, req.params.filename);
+    const safeName = path.basename(req.params.filename);
+    const filePath = path.join(UPLOADS_DIR, safeName);
+    if (!filePath.startsWith(UPLOADS_DIR)) return res.status(403).json({ error: 'Accès refusé.' });
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
     res.download(filePath);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -67,6 +74,11 @@ router.get('/global/download/:filename', verifyToken, async (req, res) => {
 router.get('/group/:groupId', verifyToken, async (req, res) => {
   try {
     const db   = await getDb();
+    const member = await db.get(
+      'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
+      [req.params.groupId, req.user.id]
+    );
+    if (!member) return res.status(403).json({ error: 'Accès refusé.' });
     const rows = await db.all(
       `SELECT * FROM group_messages WHERE group_id = ? ORDER BY created_at ASC LIMIT 100`,
       [req.params.groupId]
@@ -78,8 +90,13 @@ router.get('/group/:groupId', verifyToken, async (req, res) => {
 router.post('/group/:groupId/file', verifyToken, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier manquant.' });
   try {
-    const storedName = await storeFile(req.file); 
     const db     = await getDb();
+    const member = await db.get(
+      'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
+      [req.params.groupId, req.user.id]
+    );
+    if (!member) return res.status(403).json({ error: 'Accès refusé.' });
+    const storedName = await storeFile(req.file); 
     const result = await db.run(
       `INSERT INTO group_messages (group_id, sender_id, sender_name, content, file_name, file_original, file_size)
        VALUES (?, ?, ?, '', ?, ?, ?)`,
@@ -98,7 +115,9 @@ router.get('/group/download/:filename', verifyToken, async (req, res) => {
       const msg = await db.get('SELECT file_original FROM group_messages WHERE file_name = ?', [req.params.filename]);
       return await streamFromDrive(req.params.filename, res, msg?.file_original || 'fichier');
     }
-    const filePath = path.join(UPLOADS_DIR, req.params.filename);
+    const safeName = path.basename(req.params.filename);
+    const filePath = path.join(UPLOADS_DIR, safeName);
+    if (!filePath.startsWith(UPLOADS_DIR)) return res.status(403).json({ error: 'Accès refusé.' });
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
     res.download(filePath);
   } catch (err) { res.status(500).json({ error: err.message }); }

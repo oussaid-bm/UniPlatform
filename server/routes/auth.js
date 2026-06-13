@@ -5,11 +5,20 @@ const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');     
 const crypto   = require('crypto');         
 const dns      = require('dns').promises;     
+const rateLimit = require('express-rate-limit');
 const { getDb }                    = require('../db');
 const { sendVerificationEmail }    = require('../email');
 
 const router     = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Vérifie que le domaine de l'email a bien un serveur mail (MX record)
 async function emailDomainExists(email) {
@@ -24,11 +33,11 @@ async function emailDomainExists(email) {
 }
 
 /* ── INSCRIPTION ─────────────────────────────────────────────────────── */
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { username, email, password, role, filiere } = req.body;
   if (!username || !email || !password || !role)
     return res.status(400).json({ error: 'Tous les champs sont requis.' });
-  if (!['student', 'professor', 'admin'].includes(role))
+  if (!['student', 'professor'].includes(role))
     return res.status(400).json({ error: 'Rôle invalide.' });
   if (role === 'student' && !filiere)
     return res.status(400).json({ error: 'La filière est requise pour les étudiants.' });
@@ -56,16 +65,12 @@ router.post('/register', async (req, res) => {
       console.error('Erreur envoi email:', err.message)
     );
 
-    const APP_URL = process.env.APP_URL || 'http://localhost:3003';
-    const isDevMode = !process.env.EMAIL_USER || process.env.EMAIL_USER.includes('votre.email');
-
     res.status(201).json({
       message: 'Compte créé. Vérifiez votre email pour activer votre compte.',
       userId: result.lastID,
-      devVerifyLink: isDevMode ? `${APP_URL}/api/auth/verify-email?token=${token}` : undefined,
     });
   } catch (err) {
-    if (err.message?.includes('UNIQUE constraint failed'))
+    if (err.message?.includes('UNIQUE constraint failed') || err.code === 'ER_DUP_ENTRY')
       return res.status(409).json({ error: "Email ou nom d'utilisateur déjà utilisé." });
     res.status(500).json({ error: 'Erreur serveur.' });
   }
@@ -99,7 +104,7 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', authLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requis.' });
 
@@ -128,7 +133,7 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
@@ -159,7 +164,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requis.' });
 
@@ -183,13 +188,7 @@ router.post('/forgot-password', async (req, res) => {
       console.error('Erreur email reset:', err.message)
     );
 
-    const APP_URL   = process.env.APP_URL || 'http://localhost:3003';
-    const isDevMode = !process.env.EMAIL_USER || process.env.EMAIL_USER.includes('votre.email');
-
-    res.json({
-      ...ok,
-      devResetLink: isDevMode ? `${APP_URL}/?reset_token=${token}` : undefined,
-    });
+    res.json(ok);
   } catch {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
@@ -247,14 +246,18 @@ router.get('/professors', verifyToken, async (req, res) => {
   }
 });
 
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function htmlPage(title, message, success) {
   const color = success ? '#059669' : '#DC2626';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
   <style>body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F8FAFF}
   .box{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:400px}
   h2{color:${color}} p{color:#6B7280;font-size:14px}
   a{display:inline-block;margin-top:16px;padding:10px 24px;background:#4F46E5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600}</style>
-  </head><body><div class="box"><h2>${title}</h2><p>${message}</p><a href="/">Retour à l'accueil</a></div></body></html>`;
+  </head><body><div class="box"><h2>${esc(title)}</h2><p>${esc(message)}</p><a href="/">Retour à l'accueil</a></div></body></html>`;
 }
 
 module.exports = router;

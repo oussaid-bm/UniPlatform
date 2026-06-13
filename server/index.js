@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');         
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -21,12 +23,17 @@ const { sendLiveSessionEmail } = require('./email');
 const app = express();
 const server = http.createServer(app); 
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:3003'];
+
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] },
 });
 
-app.use(cors());            
-app.use(express.json());   
+app.use(helmet());
+app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(express.json({ limit: '1mb' }));   
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -57,7 +64,7 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'univ_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const connectedUsers = {};
 const courseRooms = {};
@@ -509,22 +516,8 @@ function startServer() {
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.log(` Port ${PORT} déjà utilisé — libération en cours...`);
-    const { execSync } = require('child_process');
-    try {
-      const output = execSync(`netstat -ano | findstr :${PORT} | findstr LISTENING`).toString();
-      const pid = output.trim().split(/\s+/).pop();
-      if (pid && pid !== '0') {
-        execSync(`taskkill /F /PID ${pid}`);
-        console.log(`Ancien processus (PID ${pid}) tué. Redémarrage...`);
-        const newServer = http.createServer(app);
-        newServer.listen(PORT, () => console.log(`Serveur démarré sur http://localhost:${PORT}`));
-        io.attach(newServer);
-      }
-    } catch (e) {
-      console.error('Impossible de libérer le port:', e.message);
-      process.exit(1);
-    }
+    console.error(`Port ${PORT} already in use. Please free the port and restart.`);
+    process.exit(1);
   } else {
     throw err;
   }

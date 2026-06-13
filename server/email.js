@@ -2,6 +2,16 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const APP_URL    = process.env.APP_URL    || 'http://localhost:3003';
 const EMAIL_USER = process.env.EMAIL_USER || ''; 
 const EMAIL_PASS = process.env.EMAIL_PASS || ''; 
@@ -70,7 +80,7 @@ async function sendVerificationEmail(email, username, token) {
     subject: 'Vérifiez votre adresse email – UniPlatform',
     html: layout(
       'Bienvenue sur UniPlatform !',
-      `Bonjour <strong>${username}</strong>, votre compte est presque prêt.`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>, votre compte est presque prêt.`,
       `<p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Cliquez sur le bouton ci-dessous pour <strong>vérifier votre adresse email</strong> et activer votre compte.
       </p>
@@ -83,19 +93,19 @@ async function sendVerificationEmail(email, username, token) {
 }
 
 async function sendLiveSessionEmail(email, username, courseName, professorName, courseId) {
-  const link = `${APP_URL}/app/cours/${courseId}`;
+  const link = `${APP_URL}/app/cours/${encodeURIComponent(courseId)}`;
 
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Cours en direct : ${courseName}`,
+    subject: `Cours en direct : ${escapeHtml(courseName)}`,
     html: layout(
       'Cours en direct démarré',
-      `Bonjour <strong>${username}</strong>`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>`,
       `${infoCard(`
         <p style="margin:0 0 4px;font-size:11px;color:${GOLD};font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Cours</p>
-        <p style="margin:0;font-size:17px;font-weight:700;color:${NAVY};">${courseName}</p>
-        <p style="margin:6px 0 0;font-size:13px;color:#7A7060;">‍${professorName} • En ce moment</p>
+        <p style="margin:0;font-size:17px;font-weight:700;color:${NAVY};">${escapeHtml(courseName)}</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#7A7060;">‍${escapeHtml(professorName)} • En ce moment</p>
       `)}
       <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Votre professeur vient de démarrer une session vidéo en direct. Rejoignez maintenant pour ne rien manquer !
@@ -112,15 +122,15 @@ async function sendAnnouncementEmail(email, username, title, content, authorName
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Nouvelle annonce : ${title}`,
+    subject: `Nouvelle annonce : ${escapeHtml(title)}`,
     html: layout(
       'Nouvelle annonce',
-      `Bonjour <strong>${username}</strong>`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>`,
       `${infoCard(`
-        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${title}</p>
-        <p style="margin:0;font-size:13px;color:#7A7060;">‍${authorName}</p>
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${escapeHtml(title)}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">‍${escapeHtml(authorName)}</p>
       `)}
-      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">${preview}</p>
+      <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">${escapeHtml(preview)}</p>
       ${button(`${APP_URL}/app/annonces`, "Voir l'annonce")}`,
       'Vous recevez cet email car vous êtes inscrit dans cette filière sur UniPlatform.'
     ),
@@ -133,15 +143,15 @@ async function sendFileUploadEmail(email, username, fileName, courseName, author
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Nouveau fichier dans "${courseName}"`,
+    subject: `Nouveau fichier dans "${escapeHtml(courseName)}"`,
     html: layout(
       'Nouveau fichier disponible',
-      `Bonjour <strong>${username}</strong>`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>`,
       `${infoCard(`
         <p style="margin:0 0 4px;font-size:11px;color:${GOLD};font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Cours</p>
-        <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:${NAVY};">${courseName}</p>
-        <p style="margin:0;font-size:14px;color:#3D3628;">${fileName}</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#7A7060;">‍Déposé par ${authorName}</p>
+        <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:${NAVY};">${escapeHtml(courseName)}</p>
+        <p style="margin:0;font-size:14px;color:#3D3628;">${escapeHtml(fileName)}</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#7A7060;">‍Déposé par ${escapeHtml(authorName)}</p>
       `)}
       <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Un nouveau fichier PDF a été déposé dans ce cours. Consultez-le dès maintenant.
@@ -156,13 +166,13 @@ async function sendNewDevoirEmail(email, username, devoirTitle, professorName) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Nouveau devoir : ${devoirTitle}`,
+    subject: `Nouveau devoir : ${escapeHtml(devoirTitle)}`,
     html: layout(
       'Nouveau devoir publié',
-      `Bonjour <strong>${username}</strong>`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>`,
       `${infoCard(`
-        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${devoirTitle}</p>
-        <p style="margin:0;font-size:13px;color:#7A7060;">‍${professorName}</p>
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${escapeHtml(devoirTitle)}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">‍${escapeHtml(professorName)}</p>
       `)}
       <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Un nouveau devoir a été publié. Connectez-vous pour consulter les consignes et remettre votre travail.
@@ -177,13 +187,13 @@ async function sendSubmissionEmail(email, professorName, studentName, devoirTitl
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Travail rendu : ${devoirTitle}`,
+    subject: `Travail rendu : ${escapeHtml(devoirTitle)}`,
     html: layout(
       'Travail rendu',
-      `Bonjour <strong>${professorName}</strong>`,
+      `Bonjour <strong>${escapeHtml(professorName)}</strong>`,
       `${infoCard(`
-        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${devoirTitle}</p>
-        <p style="margin:0;font-size:13px;color:#7A7060;">Soumis par <strong>${studentName}</strong></p>
+        <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${NAVY};">${escapeHtml(devoirTitle)}</p>
+        <p style="margin:0;font-size:13px;color:#7A7060;">Soumis par <strong>${escapeHtml(studentName)}</strong></p>
       `)}
       <p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Un étudiant vient de remettre son travail. Connectez-vous pour le consulter et le télécharger.
@@ -199,18 +209,18 @@ async function sendGradeEmail(email, studentName, devoirTitle, grade, comment) {
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
     to: email,
-    subject: `Votre note pour "${devoirTitle}"`,
+    subject: `Votre note pour "${escapeHtml(devoirTitle)}"`,
     html: layout(
       'Votre travail a été noté',
-      `Bonjour <strong>${studentName}</strong>`,
+      `Bonjour <strong>${escapeHtml(studentName)}</strong>`,
       `<div style="background:${NAVY};border-radius:12px;padding:22px;margin:24px 0;text-align:center;">
         <p style="margin:0 0 4px;font-size:12px;color:${GOLD};text-transform:uppercase;letter-spacing:0.06em;">Devoir</p>
-        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#ffffff;">${devoirTitle}</p>
-        <p style="margin:0;font-size:36px;font-weight:800;color:#ffffff;font-family:${SERIF};">${gradeDisplay}</p>
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#ffffff;">${escapeHtml(devoirTitle)}</p>
+        <p style="margin:0;font-size:36px;font-weight:800;color:#ffffff;font-family:${SERIF};">${escapeHtml(gradeDisplay)}</p>
       </div>
       ${comment ? infoCard(`
         <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${GOLD};text-transform:uppercase;letter-spacing:0.06em;">Commentaire du professeur</p>
-        <p style="margin:0;font-size:14px;color:#3D3628;line-height:1.6;">${comment}</p>
+        <p style="margin:0;font-size:14px;color:#3D3628;line-height:1.6;">${escapeHtml(comment)}</p>
       `) : ''}
       ${button(`${APP_URL}/app/cours`, 'Voir mon devoir')}`,
       'UniPlatform — Plateforme universitaire en ligne'
@@ -220,7 +230,7 @@ async function sendGradeEmail(email, studentName, devoirTitle, grade, comment) {
 
 /* ── Réinitialisation mot de passe ──────────────────────────────────── */
 async function sendPasswordResetEmail(email, username, token) {
-  const link = `${APP_URL}/?reset_token=${token}`;
+  const link = `${APP_URL}/?reset_token=${encodeURIComponent(token)}`;
 
   await transporter.sendMail({
     from: `"UniPlatform" <${EMAIL_USER}>`,
@@ -228,7 +238,7 @@ async function sendPasswordResetEmail(email, username, token) {
     subject: 'Réinitialisation de votre mot de passe – UniPlatform',
     html: layout(
       'Réinitialisation du mot de passe',
-      `Bonjour <strong>${username}</strong>`,
+      `Bonjour <strong>${escapeHtml(username)}</strong>`,
       `<p style="color:#3D3628;font-size:14px;line-height:1.7;margin:0;">
         Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.
       </p>
