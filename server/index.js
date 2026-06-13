@@ -17,6 +17,7 @@ const groupsRoutes      = require('./routes/groups');
 const submissionsRoutes = require('./routes/submissions');
 const chatRoutes        = require('./routes/chat');
 const { sendLiveSessionEmail } = require('./email');
+const { notifyStudentsByFiliere } = require('./utils/notifyStudents');
 
 const app = express();
 const server = http.createServer(app); 
@@ -244,29 +245,13 @@ io.on('connection', (socket) => {
       const course = await db.get('SELECT * FROM courses WHERE id = ?', [courseId]);
       if (!course) return;
 
-      const filiere = course.filiere ? course.filiere.trim() : null;
-      if (!filiere) {
-        console.log(`Cours "${course.title}" sans filière → aucun email envoyé.`);
-        return;
-      }
-
-      const students = await db.all(
-        'SELECT username, email FROM users WHERE role = ? AND filiere = ? AND email_verified = 1',
-        ['student', filiere]
+      const profName = user.username;
+      const courseTitle = course.title;
+      await notifyStudentsByFiliere(
+        course.filiere,
+        (email, username) => sendLiveSessionEmail(email, username, courseTitle, profName, courseId),
+        `Cours en direct "${courseTitle}"`
       );
-
-      if (students.length === 0) {
-        console.log(`Aucun étudiant vérifié pour la filière "${filiere}"`);
-        return;
-      }
-
-      console.log(`Envoi de ${students.length} email(s) pour "${course.title}" → ${filiere}`);
-      students.forEach(({ username, email }) => {
-        sendLiveSessionEmail(email, username, course.title, user.username, courseId)
-          .then(() => console.log(`  Email → ${email}`))
-          .catch((err) => console.error(`  Échec ${email}:`, err.message));
-      });
-
     } catch (err) {
       console.error('Erreur envoi emails cours live:', err.message);
     }

@@ -1,37 +1,8 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
-
-const UploadIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="17 8 12 3 7 8"/>
-    <line x1="12" y1="3" x2="12" y2="15"/>
-  </svg>
-);
-const DownloadIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-);
-const TrashIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6M14 11v6"/>
-  </svg>
-);
-const PdfIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-  </svg>
-);
-
-const formatSize = (b) => b < 1024 ? `${b} o` : b < 1048576 ? `${(b/1024).toFixed(1)} Ko` : `${(b/1048576).toFixed(1)} Mo`;
-const formatDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+import { UploadIcon, DownloadIcon, TrashIcon, PdfIconSimple } from '../components/Icons';
+import { formatSize, formatDateShort } from '../utils/formatting';
 
 const SubmissionPanel = ({ courseId, token, isProfessor }) => {
   const [submissions,  setSubmissions]  = useState([]);
@@ -158,10 +129,10 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
         <>
           {mySubmission ? (
             <div className="sub_existing">
-              <div className="file_icon"><PdfIcon /></div>
+              <div className="file_icon"><PdfIconSimple /></div>
               <div className="file_info">
                 <span className="file_name">{mySubmission.original_name}</span>
-                <span className="file_meta">{formatSize(mySubmission.size)} · soumis le {formatDate(mySubmission.created_at)}</span>
+                <span className="file_meta">{formatSize(mySubmission.size)} · soumis le {formatDateShort(mySubmission.created_at)}</span>
                 {mySubmission.grade !== null && mySubmission.grade !== undefined && (
                   <div className="sub_grade_display">
                     <span className="sub_grade_value">{mySubmission.grade}/20</span>
@@ -205,15 +176,15 @@ const SubmissionPanel = ({ courseId, token, isProfessor }) => {
           {loading ? (
             <div className="file_empty"><div className="file_spinner" /></div>
           ) : submissions.length === 0 ? (
-            <div className="file_empty"><PdfIcon /><span>Aucun travail rendu pour l'instant</span></div>
+            <div className="file_empty"><PdfIconSimple /><span>Aucun travail rendu pour l'instant</span></div>
           ) : (
             submissions.map(sub => (
               <div key={sub.id} className="sub_prof_item">
                 <div className="file_item" style={{ borderRadius: gradingId === sub.id ? '10px 10px 0 0' : undefined }}>
-                  <div className="file_icon"><PdfIcon /></div>
+                  <div className="file_icon"><PdfIconSimple /></div>
                   <div className="file_info">
                     <span className="file_name">{sub.original_name}</span>
-                    <span className="file_meta">{sub.student_name} · {formatSize(sub.size)} · {formatDate(sub.created_at)}</span>
+                    <span className="file_meta">{sub.student_name} · {formatSize(sub.size)} · {formatDateShort(sub.created_at)}</span>
                   </div>
                   <div className="file_actions">
                     {sub.grade !== null && sub.grade !== undefined

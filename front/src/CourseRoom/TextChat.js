@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addMessage, setMessages } from '../store/slices/chatSlice';
 import { sendMessage, joinCourseChat, leaveCourseChat } from '../socketConnection/socketConn';
-
+import { formatTime } from '../utils/formatting';
 import API from '../config';
 
 const TextChat = ({ courseId }) => {
@@ -45,11 +45,6 @@ const TextChat = ({ courseId }) => {
       e.preventDefault();
       handleSend();
     }
-  };
-
-  const formatTime = (iso) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (

@@ -5,48 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { getSocket } from '../../socketConnection/socketConn';
 import { FILIERES } from '../../filieres';
 import API from '../../config';
+import { VideoIcon, PlayIcon, ArrowIcon, EnterIcon, PlusIcon, TrashIconSimple, UserIcon } from '../../components/Icons';
+import { bannerColorById } from '../../utils/formatting';
 import './CoursEnLigne.css';
 
-const BANNER_COLORS = ['#1B2B4B', '#7C3AED', '#0891B2', '#059669', '#C8963E', '#DB2777'];
-const colorFor = (id) => BANNER_COLORS[id % BANNER_COLORS.length];
-
-const VideoIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-  </svg>
-);
-const PlayIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="5 3 19 12 5 21 5 3"/>
-  </svg>
-);
-const ArrowIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-  </svg>
-);
-const EnterIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-    <polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
-  </svg>
-);
-const PlusIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-);
-const TrashIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-  </svg>
-);
-const UserIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-  </svg>
-);
 const CamIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
@@ -168,7 +130,7 @@ const CoursEnLigne = () => {
                   const isLive = !!liveSessions[s.id];
                   return (
                     <div className="live_card" key={s.id}>
-                      <div className="live_card_banner" style={{ background: colorFor(s.id) }}>
+                      <div className="live_card_banner" style={{ background: bannerColorById(s.id) }}>
                         <div className="live_card_banner_icon"><VideoIcon /></div>
                         {isLive && (
                           <div className="live_badge">
@@ -195,7 +157,7 @@ const CoursEnLigne = () => {
                             </button>
                           )}
                           <button className="btn_delete_session" onClick={() => handleDelete(s.id)} title="Supprimer">
-                            <TrashIcon />
+                            <TrashIconSimple />
                           </button>
                         </div>
                       </div>
@@ -224,7 +186,7 @@ const CoursEnLigne = () => {
                   const isLive = !!liveSessions[s.id];
                   return (
                     <div className="live_card" key={s.id}>
-                      <div className="live_card_banner" style={{ background: colorFor(s.id) }}>
+                      <div className="live_card_banner" style={{ background: bannerColorById(s.id) }}>
                         <div className="live_card_banner_icon"><VideoIcon /></div>
                         {isLive ? (
                           <div className="live_badge">

@@ -1,52 +1,8 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../config';
-
-const PdfIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-    <line x1="9" y1="13" x2="15" y2="13"/>
-    <line x1="9" y1="17" x2="15" y2="17"/>
-    <line x1="9" y1="9" x2="11" y2="9"/>
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6M14 11v6"/>
-    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-  </svg>
-);
-
-const UploadIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="17 8 12 3 7 8"/>
-    <line x1="12" y1="3" x2="12" y2="15"/>
-  </svg>
-);
-
-const formatSize = (bytes) => {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-};
-
-const formatDate = (iso) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-};
+import { PdfIcon, DownloadIcon, TrashIconFull, UploadIcon } from '../components/Icons';
+import { formatSize, formatDateShort } from '../utils/formatting';
 
 const FilePanel = ({ courseId, token, isProfessor }) => {
   const [files,     setFiles]     = useState([]);
@@ -213,7 +169,7 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
                   {file.original_name}
                 </span>
                 <span className="file_meta">
-                  {formatSize(file.size)} · {formatDate(file.created_at)} · {file.uploader_name}
+                  {formatSize(file.size)} · {formatDateShort(file.created_at)} · {file.uploader_name}
                 </span>
               </div>
               <div className="file_actions">
@@ -230,7 +186,7 @@ const FilePanel = ({ courseId, token, isProfessor }) => {
                     onClick={() => handleDelete(file)}
                     title="Supprimer"
                   >
-                    <TrashIcon />
+                    <TrashIconFull />
                   </button>
                 )}
               </div>

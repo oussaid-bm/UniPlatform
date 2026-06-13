@@ -1,29 +1,13 @@
 const express  = require('express');
-const path     = require('path');
-const fs       = require('fs');
-const multer   = require('multer');
 const { getDb }        = require('../db');
 const { verifyToken }  = require('../middleware/auth');
-const { uploadToDrive, streamFromDrive, driveEnabled } = require('../googleDrive');
+const { driveEnabled } = require('../googleDrive');
+const { resolveUploadsDir, createUploadMiddleware, storeFile, downloadFile } = require('../utils/fileStorage');
 
 const router = express.Router();
 
-const UPLOADS_DIR = process.env.UPLOADS_PATH
-  ? path.join(process.env.UPLOADS_PATH, 'chat')
-  : path.join(__dirname, '..', 'uploads', 'chat');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
-
-async function storeFile(file) {
-  if (driveEnabled()) {
-    const driveFile = await uploadToDrive(file.buffer, file.originalname, file.mimetype || 'application/octet-stream');
-    return driveFile.id;
-  }
-  const localName = `${Date.now()}_${file.originalname}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, localName), file.buffer);
-  return localName;
-}
+const UPLOADS_DIR = resolveUploadsDir('chat');
+const upload = createUploadMiddleware();
 
 router.get('/global', verifyToken, async (req, res) => {
   try {
@@ -39,7 +23,7 @@ router.get('/global', verifyToken, async (req, res) => {
 router.post('/global/file', verifyToken, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier manquant.' });
   try {
-    const storedName = await storeFile(req.file); 
+    const storedName = await storeFile(req.file, UPLOADS_DIR);
     const db     = await getDb();
     const result = await db.run(
       `INSERT INTO global_messages (sender_id, sender_name, filiere, content, file_name, file_original, file_size)
@@ -56,11 +40,9 @@ router.get('/global/download/:filename', verifyToken, async (req, res) => {
     if (driveEnabled()) {
       const db = await getDb();
       const msg = await db.get('SELECT file_original FROM global_messages WHERE file_name = ?', [req.params.filename]);
-      return await streamFromDrive(req.params.filename, res, msg?.file_original || 'fichier');
+      return await downloadFile(req.params.filename, msg?.file_original || 'fichier', UPLOADS_DIR, res);
     }
-    const filePath = path.join(UPLOADS_DIR, req.params.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
-    res.download(filePath);
+    await downloadFile(req.params.filename, req.params.filename, UPLOADS_DIR, res);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -78,7 +60,7 @@ router.get('/group/:groupId', verifyToken, async (req, res) => {
 router.post('/group/:groupId/file', verifyToken, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier manquant.' });
   try {
-    const storedName = await storeFile(req.file); 
+    const storedName = await storeFile(req.file, UPLOADS_DIR);
     const db     = await getDb();
     const result = await db.run(
       `INSERT INTO group_messages (group_id, sender_id, sender_name, content, file_name, file_original, file_size)
@@ -96,11 +78,9 @@ router.get('/group/download/:filename', verifyToken, async (req, res) => {
     if (driveEnabled()) {
       const db = await getDb();
       const msg = await db.get('SELECT file_original FROM group_messages WHERE file_name = ?', [req.params.filename]);
-      return await streamFromDrive(req.params.filename, res, msg?.file_original || 'fichier');
+      return await downloadFile(req.params.filename, msg?.file_original || 'fichier', UPLOADS_DIR, res);
     }
-    const filePath = path.join(UPLOADS_DIR, req.params.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable.' });
-    res.download(filePath);
+    await downloadFile(req.params.filename, req.params.filename, UPLOADS_DIR, res);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

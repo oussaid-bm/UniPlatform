@@ -3,6 +3,7 @@ const express = require('express');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { sendAnnouncementEmail } = require('../email');
+const { notifyStudentsByFiliere } = require('../utils/notifyStudents');
 
 const router = express.Router();
 
@@ -51,25 +52,12 @@ router.post('/', verifyToken, async (req, res) => {
       created_at: new Date().toISOString(),
     });
 
-    const filiereTarget = (filiere || '').trim();
-    if (!filiereTarget) return; 
-
-    try {
-      const students = await db.all(
-        'SELECT username, email FROM users WHERE role = ? AND filiere = ? AND email_verified = 1',
-        ['student', filiereTarget]
-      );
-      if (students.length === 0) return;
-
-      console.log(`Annonce "${title}" → ${students.length} email(s) (${filiereTarget})`);
-      students.forEach(({ username, email }) => {
-        sendAnnouncementEmail(email, username, title, content, req.user.username)
-          .then(() => console.log(`  Email → ${email}`))
-          .catch((err) => console.error(`  Échec ${email}:`, err.message));
-      });
-    } catch (err) {
-      console.error('Erreur envoi emails annonce:', err.message);
-    }
+    const authorName = req.user.username;
+    await notifyStudentsByFiliere(
+      filiere,
+      (email, username) => sendAnnouncementEmail(email, username, title, content, authorName),
+      `Annonce "${title}"`
+    );
   } catch {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
