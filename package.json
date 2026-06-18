@@ -1,0 +1,13 @@
+{
+  "name": "uniplatform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UniPlatform - plateforme universitaire en ligne (déploiement monorepo : le serveur Node sert le build React).",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm install --prefix front && CI=false npm run build --prefix front && npm install --prefix server",
+    "start": "node server/index.js"
+  }
+}
